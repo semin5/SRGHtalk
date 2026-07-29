@@ -1,0 +1,75 @@
+{
+  "name": "srgh-talk",
+  "productName": "사랑톡",
+  "private": true,
+  "version": "0.2.3",
+  "description": "사랑의병원 직원용 업무 메신저",
+  "author": "사랑의병원 IT팀",
+  "main": "electron/main.cjs",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build --base=./",
+    "preview": "vite preview",
+    "electron:dev": "npm run build && electron .",
+    "electron:pack": "npm run build && electron-builder --dir",
+    "electron:build": "npm run build && electron-builder --win nsis portable"
+  },
+  "dependencies": {
+    "@stomp/stompjs": "^7.2.1",
+    "@vitejs/plugin-react": "^4.4.1",
+    "lucide-react": "^0.468.0",
+    "sockjs-client": "^1.6.1",
+    "vite": "^6.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/sockjs-client": "^1.5.4",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "electron": "^37.2.3",
+    "electron-builder": "^26.0.12",
+    "typescript": "^5.7.2"
+  },
+  "build": {
+    "appId": "kr.saranghospital.srghtalk",
+    "productName": "사랑톡",
+    "copyright": "Copyright © 2026 사랑의병원",
+    "directories": {
+      "output": "release-medisay"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "artifactName": "${productName}-설치-${version}-${arch}.${ext}",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "사랑톡",
+      "installerLanguages": ["ko_KR"],
+      "language": "1042",
+      "deleteAppDataOnUninstall": false
+    },
+    "portable": {
+      "artifactName": "${productName}-포터블-${version}-${arch}.${ext}"
+    }
+  }
+}
