@@ -33,6 +33,7 @@ build/
 .vscode/
 
 ### SRGH Talk ###
+frontend/node_modules/
 frontend/release-1.9.2/
 frontend/*.tsbuildinfo
 data/
