@@ -33,22 +33,7 @@ build/
 .vscode/
 
 ### SRGH Talk ###
-frontend/node_modules/
-frontend/dist/
-frontend/release/
-frontend/release-app/
-frontend/release-compact/
-frontend/release-tall/
-frontend/release-contacts/
-frontend/release-titlebar/
-frontend/release-titlebar-v2/
-frontend/release-frameless/
-frontend/release-controls/
-frontend/release-theme-titlebar/
-frontend/release-medisay/
-frontend/release-medisay-0.2.1/
-frontend/release-medisay-0.2.2/
-frontend/release-medisay-0.2.3/
+frontend/release-1.9.2/
 frontend/*.tsbuildinfo
 data/
 uploads/
