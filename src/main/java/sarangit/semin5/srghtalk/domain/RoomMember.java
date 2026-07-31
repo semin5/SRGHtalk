@@ -26,4 +26,10 @@ public class RoomMember {
 
     @Builder.Default
     private boolean muted = false;
+
+    @Builder.Default
+    private boolean pinned = false;
+
+    @Column(length = 120)
+    private String customName;
 }

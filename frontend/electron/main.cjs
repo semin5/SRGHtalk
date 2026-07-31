@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, safeStorage, screen, session, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, powerMonitor, safeStorage, screen, session, shell } = require("electron");
 const fs = require("fs");
 const path = require("path");
 
@@ -11,6 +11,7 @@ if (process.platform === "win32") {
 }
 
 let mainWindow;
+let idleAwaySent = false;
 let organizationWindow;
 const chatWindows = new Map();
 const noticeWindows = new Map();
@@ -56,6 +57,10 @@ function layoutNotificationWindows() {
 }
 
 function createNotificationToast(options = {}) {
+  for (const existingToast of [...notificationWindows]) {
+    if (!existingToast.isDestroyed()) existingToast.destroy();
+  }
+  notificationWindows.length = 0;
   const title = escapeHtml(options.title || "사랑톡");
   const body = escapeHtml(options.body || "새 메시지가 도착했습니다.");
   const roomId = Number(options.roomId);
@@ -285,6 +290,12 @@ function createChatWindow(roomId) {
     query: { ...serverConfig(), chatRoomId: String(roomId) },
   });
   chatWindow.once("ready-to-show", () => chatWindow.show());
+  chatWindow.webContents.on("before-input-event", (event, input) => {
+    if (input.key === "Escape" && input.type === "keyDown") {
+      event.preventDefault();
+      chatWindow.close();
+    }
+  });
   chatWindow.on("closed", () => chatWindows.delete(roomId));
 }
 
@@ -326,6 +337,12 @@ function createOrganizationWindow() {
     query: { ...serverConfig(), organization: "1" },
   });
   organizationWindow.once("ready-to-show", () => organizationWindow.show());
+  organizationWindow.webContents.on("before-input-event", (event, input) => {
+    if (input.key === "Escape" && input.type === "keyDown") {
+      event.preventDefault();
+      organizationWindow.close();
+    }
+  });
   organizationWindow.on("closed", () => { organizationWindow = undefined; });
 }
 
@@ -356,6 +373,12 @@ function createNoticeWindow(key, query, title) {
   noticeWindows.set(key, noticeWindow);
   noticeWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"), { query: { ...serverConfig(), ...query } });
   noticeWindow.once("ready-to-show", () => noticeWindow.show());
+  noticeWindow.webContents.on("before-input-event", (event, input) => {
+    if (input.key === "Escape" && input.type === "keyDown") {
+      event.preventDefault();
+      noticeWindow.close();
+    }
+  });
   noticeWindow.on("closed", () => noticeWindows.delete(key));
 }
 
@@ -364,6 +387,19 @@ app.whenReady().then(() => {
     callback(permission !== "notifications");
   });
   createWindow();
+  powerMonitor.on("lock-screen", () => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("presence:auto-away");
+    idleAwaySent = true;
+  });
+  setInterval(() => {
+    const idle = powerMonitor.getSystemIdleTime();
+    if (idle >= 300 && !idleAwaySent) {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("presence:auto-away");
+      idleAwaySent = true;
+    } else if (idle < 300) {
+      idleAwaySent = false;
+    }
+  }, 15000).unref();
 });
 
 ipcMain.on("window:minimize", (event) => {

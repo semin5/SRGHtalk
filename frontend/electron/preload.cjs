@@ -15,6 +15,11 @@ contextBridge.exposeInMainWorld("srghDesktop", Object.freeze({
     ipcRenderer.on("settings:changed", listener);
     return () => ipcRenderer.removeListener("settings:changed", listener);
   },
+  onAutoAway: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on("presence:auto-away", listener);
+    return () => ipcRenderer.removeListener("presence:auto-away", listener);
+  },
   notify: (title, body, sound, roomId) => ipcRenderer.send("notification:show", { title, body, sound, roomId }),
   logout: () => ipcRenderer.send("auth:logout"),
   saveCredentials: (employeeNumber, password) => ipcRenderer.invoke("auth:save-credentials", { employeeNumber, password }),

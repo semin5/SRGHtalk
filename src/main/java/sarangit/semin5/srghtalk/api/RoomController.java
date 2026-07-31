@@ -22,6 +22,7 @@ public class RoomController {
     public record CreateRoomRequest(String name, ChatRoom.Type type, @NotEmpty List<Long> employeeIds) {}
     public record SendRequest(String content, ChatMessage.Type type) {}
     public record ReadRequest(Long messageId) {}
+    public record RoomPreferencesRequest(String customName, Boolean pinned, Boolean muted) {}
 
     @GetMapping
     public List<RoomDto> rooms(HttpServletRequest request) {
@@ -36,8 +37,9 @@ public class RoomController {
 
     @GetMapping("/{roomId}/messages")
     public List<MessageDto> messages(HttpServletRequest request, @PathVariable Long roomId,
-                                     @RequestParam(defaultValue = "50") int limit) {
-        return chat.history(auth.authenticate(request), roomId, limit);
+                                     @RequestParam(defaultValue = "30") int limit,
+                                     @RequestParam(required = false) Long beforeId) {
+        return chat.history(auth.authenticate(request), roomId, limit, beforeId);
     }
 
     @PostMapping("/{roomId}/messages")
@@ -59,5 +61,12 @@ public class RoomController {
     @DeleteMapping("/{roomId}/members/me")
     public void leave(HttpServletRequest request, @PathVariable Long roomId) {
         chat.leave(auth.authenticate(request), roomId);
+    }
+
+    @PatchMapping("/{roomId}/members/me")
+    public RoomDto updatePreferences(HttpServletRequest request, @PathVariable Long roomId,
+                                     @RequestBody RoomPreferencesRequest body) {
+        return chat.updatePreferences(auth.authenticate(request), roomId,
+                body.customName(), body.pinned(), body.muted());
     }
 }

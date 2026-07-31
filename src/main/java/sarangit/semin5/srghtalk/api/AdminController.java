@@ -23,6 +23,7 @@ public class AdminController {
     private final ChatRoomRepository rooms;
     private final ChatMessageRepository messages;
     private final PresenceService presence;
+    private final RealtimePublisher realtime;
     private final DtoMapper mapper;
 
     public record EmployeeRequest(@NotBlank String employeeNumber, String password, @NotBlank String name,
@@ -56,7 +57,9 @@ public class AdminController {
                 .extensionNumber(body.extensionNumber())
                 .role(body.role() == null ? Employee.Role.USER : body.role())
                 .status(body.status() == null ? Employee.Status.ACTIVE : body.status()).build();
-        return mapper.employee(employees.save(employee));
+        EmployeeDto saved = mapper.employee(employees.saveAndFlush(employee));
+        realtime.publish("/topic/directory", Map.of("type", "EMPLOYEE_CREATED", "employeeId", saved.id()));
+        return saved;
     }
 
     @PutMapping("/employees/{id}")
@@ -75,7 +78,9 @@ public class AdminController {
         employee.setDepartment(body.departmentId() == null ? null : departments.findById(body.departmentId())
                 .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "부서를 찾을 수 없습니다.")));
         if (body.password() != null && !body.password().isBlank()) employee.setPasswordHash(auth.encodePassword(body.password()));
-        return mapper.employee(employees.save(employee));
+        EmployeeDto saved = mapper.employee(employees.saveAndFlush(employee));
+        realtime.publish("/topic/directory", Map.of("type", "EMPLOYEE_UPDATED", "employeeId", saved.id()));
+        return saved;
     }
 
     @DeleteMapping("/employees/{id}")

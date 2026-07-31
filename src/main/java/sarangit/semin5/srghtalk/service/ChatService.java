@@ -35,14 +35,16 @@ public class ChatService {
             List<RoomMember> memberships = members.findAllByRoomId(room.getId());
             List<EmployeeDto> roomMembers = memberships.stream()
                     .map(RoomMember::getEmployee).map(mapper::employee).toList();
-            String displayName = memberships.stream()
+            String generatedName = memberships.stream()
                     .map(RoomMember::getEmployee)
                     .filter(member -> !member.getId().equals(employee.getId()))
                     .map(Employee::getName)
                     .collect(java.util.stream.Collectors.joining(", "));
-            if (displayName.isBlank()) displayName = "나와의 채팅";
+            if (generatedName.isBlank()) generatedName = "나와의 채팅";
+            String displayName = self.getCustomName() == null || self.getCustomName().isBlank()
+                    ? generatedName : self.getCustomName();
             return new RoomDto(room.getId(), displayName, room.getType().name(), roomMembers.size(),
-                    unread, last, roomMembers);
+                    unread, last, roomMembers, self.isPinned(), self.isMuted());
         }).toList();
     }
 
@@ -73,15 +75,28 @@ public class ChatService {
         LocalDateTime now = LocalDateTime.now();
         ChatRoom room = rooms.save(ChatRoom.builder().name(roomName).type(type).createdBy(creator)
                 .createdAt(now).updatedAt(now).build());
-        members.saveAll(selected.stream().map(e -> RoomMember.builder().room(room).employee(e).joinedAt(now).build()).toList());
-        realtime.publish("/topic/rooms", Map.of("type", "ROOM_CREATED", "roomId", room.getId()));
+        members.saveAll(selected.stream().map(e -> {
+            String memberName = selected.stream().filter(other -> !other.getId().equals(e.getId()))
+                    .map(Employee::getName).collect(java.util.stream.Collectors.joining(", "));
+            if (memberName.isBlank()) memberName = "나와의 채팅";
+            return RoomMember.builder().room(room).employee(e).joinedAt(now).customName(memberName).build();
+        }).toList());
+        publishAfterCommit("/topic/rooms", Map.of("type", "ROOM_CREATED", "roomId", room.getId()));
         return roomsFor(creator).stream().filter(r -> r.id().equals(room.getId())).findFirst().orElseThrow();
     }
 
     @Transactional(readOnly = true)
     public List<MessageDto> history(Employee employee, Long roomId, int limit) {
+        return history(employee, roomId, limit, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<MessageDto> history(Employee employee, Long roomId, int limit, Long beforeId) {
         membership(roomId, employee.getId());
-        List<ChatMessage> result = messages.findAllByRoomIdOrderByIdDesc(roomId, PageRequest.of(0, Math.min(limit, 100)));
+        var page = PageRequest.of(0, Math.min(Math.max(limit, 1), 100));
+        List<ChatMessage> result = beforeId == null
+                ? messages.findAllByRoomIdOrderByIdDesc(roomId, page)
+                : messages.findAllByRoomIdAndIdLessThanOrderByIdDesc(roomId, beforeId, page);
         Collections.reverse(result);
         return result.stream().map(mapper::message).toList();
     }
@@ -148,11 +163,54 @@ public class ChatService {
     @Transactional
     public void leave(Employee employee, Long roomId) {
         RoomMember member = membership(roomId, employee.getId());
+        ChatRoom room = member.getRoom();
+        List<RoomMember> currentMembers = members.findAllByRoomId(roomId);
+        for (RoomMember currentMember : currentMembers) {
+            if (currentMember.getCustomName() == null || currentMember.getCustomName().isBlank()) {
+                String stableName = currentMembers.stream()
+                        .map(RoomMember::getEmployee)
+                        .filter(other -> !other.getId().equals(currentMember.getEmployee().getId()))
+                        .map(Employee::getName)
+                        .collect(java.util.stream.Collectors.joining(", "));
+                currentMember.setCustomName(stableName.isBlank() ? "나와의 채팅" : stableName);
+            }
+        }
+        members.saveAll(currentMembers);
+        ChatMessage systemMessage = messages.save(ChatMessage.builder().room(room).sender(employee)
+                .type(ChatMessage.Type.SYSTEM).content(employee.getName() + "님이 대화방을 나갔습니다.")
+                .sentAt(LocalDateTime.now()).build());
+        room.setUpdatedAt(systemMessage.getSentAt());
         members.delete(member);
-        realtime.publish("/topic/rooms", Map.of(
+        publishAfterCommit("/topic/rooms/" + roomId, mapper.message(systemMessage));
+        publishAfterCommit("/topic/rooms", Map.of(
                 "type", "ROOM_MEMBER_LEFT",
                 "roomId", roomId,
                 "employeeId", employee.getId()));
+    }
+
+    @Transactional
+    public RoomDto updatePreferences(Employee employee, Long roomId, String customName, Boolean pinned, Boolean muted) {
+        RoomMember member = membership(roomId, employee.getId());
+        if (customName != null) {
+            String cleaned = customName.trim();
+            if (cleaned.isEmpty() || cleaned.length() > 120)
+                throw new ApiException(HttpStatus.BAD_REQUEST, "대화방 이름은 1~120자로 입력해 주세요.");
+            member.setCustomName(cleaned);
+        }
+        if (pinned != null) member.setPinned(pinned);
+        if (muted != null) member.setMuted(muted);
+        members.save(member);
+        return roomsFor(employee).stream().filter(room -> room.id().equals(roomId)).findFirst().orElseThrow();
+    }
+
+    private void publishAfterCommit(String destination, Object payload) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCommit() { realtime.publish(destination, payload); }
+            });
+        } else {
+            realtime.publish(destination, payload);
+        }
     }
 
     public RoomMember membership(Long roomId, Long employeeId) {

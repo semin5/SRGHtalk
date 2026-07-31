@@ -2,7 +2,7 @@
 
 interface SrghSettings {
   theme: "light" | "dark" | "system";
-  fontSize: "small" | "normal" | "large";
+  fontSize: number;
   density: "compact" | "comfortable";
   notifications: boolean;
   notificationPreview: boolean;
@@ -25,6 +25,7 @@ interface Window {
     composeNotice: () => void;
     applySettings: (settings: SrghSettings) => void;
     onSettingsChanged: (callback: (settings: SrghSettings) => void) => () => void;
+    onAutoAway: (callback: () => void) => () => void;
     notify: (title: string, body: string, sound: boolean, roomId?: number) => void;
     logout: () => void;
     saveCredentials: (employeeNumber: string, password: string) => Promise<boolean>;

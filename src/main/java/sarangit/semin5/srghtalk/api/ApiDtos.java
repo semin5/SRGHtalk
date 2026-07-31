@@ -16,7 +16,7 @@ public final class ApiDtos {
                              String content, LocalDateTime sentAt, long unreadCount, FileDto file) {}
     public record FileDto(Long id, String originalName, String contentType, long sizeBytes, String downloadUrl) {}
     public record RoomDto(Long id, String name, String type, int memberCount, long unreadCount,
-                          MessageDto lastMessage, List<EmployeeDto> members) {}
+                          MessageDto lastMessage, List<EmployeeDto> members, boolean pinned, boolean muted) {}
     public record NoticeDto(Long id, Long senderId, String senderName, String senderPosition,
                             String senderDepartment, String title, String content, List<String> recipients,
                             LocalDateTime sentAt, boolean read, FileDto file) {}

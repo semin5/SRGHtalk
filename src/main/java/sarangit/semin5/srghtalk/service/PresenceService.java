@@ -1,6 +1,8 @@
 package sarangit.semin5.srghtalk.service;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.time.LocalDateTime;
 import java.util.Set;
 
@@ -32,8 +34,17 @@ public class PresenceService {
     }
 
     public void profileChanged(Long employeeId, String availability) {
-        realtime.publish("/topic/presence",
-                new PresenceEvent(employeeId, availability, LocalDateTime.now()));
+        PresenceEvent event = new PresenceEvent(employeeId, availability, LocalDateTime.now());
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    realtime.publish("/topic/presence", event);
+                }
+            });
+        } else {
+            realtime.publish("/topic/presence", event);
+        }
     }
 
     public record PresenceEvent(Long employeeId, String status, LocalDateTime changedAt) {}

@@ -8,6 +8,7 @@ import java.util.Optional;
 
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
     List<ChatMessage> findAllByRoomIdOrderByIdDesc(Long roomId, Pageable pageable);
+    List<ChatMessage> findAllByRoomIdAndIdLessThanOrderByIdDesc(Long roomId, Long beforeId, Pageable pageable);
     Optional<ChatMessage> findTopByRoomIdOrderByIdDesc(Long roomId);
     long countByRoomIdAndIdGreaterThan(Long roomId, Long id);
 }
