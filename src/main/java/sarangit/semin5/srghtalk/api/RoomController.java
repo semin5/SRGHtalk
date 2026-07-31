@@ -55,4 +55,9 @@ public class RoomController {
     public void delete(HttpServletRequest request, @PathVariable Long messageId) {
         chat.deleteMessage(auth.authenticate(request), messageId);
     }
+
+    @DeleteMapping("/{roomId}/members/me")
+    public void leave(HttpServletRequest request, @PathVariable Long roomId) {
+        chat.leave(auth.authenticate(request), roomId);
+    }
 }

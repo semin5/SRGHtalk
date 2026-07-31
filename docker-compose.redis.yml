@@ -1,0 +1,37 @@
+services:
+  redis:
+    image: redis:7.4-alpine
+    container_name: srghtalk-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - srghtalk-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-06-13T11-33-47Z
+    container_name: srghtalk-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-srghtalk}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-srghtalk-minio-change-me}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - srghtalk-minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  srghtalk-redis-data:
+  srghtalk-minio-data:

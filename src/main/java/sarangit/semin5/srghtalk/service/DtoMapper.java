@@ -22,8 +22,9 @@ public class DtoMapper {
     public EmployeeDto employee(Employee e) {
         Department d = e.getDepartment();
         return new EmployeeDto(e.getId(), e.getEmployeeNumber(), e.getName(), e.getPosition(), e.getPhone(),
-                e.getEmail(), d == null ? null : d.getId(), d == null ? null : d.getName(),
-                e.getRole().name(), e.getStatus().name(), presence.isOnline(e.getId()));
+                e.getEmail(), e.getExtensionNumber(), d == null ? null : d.getId(), d == null ? null : d.getName(),
+                e.getRole().name(), e.getStatus().name(), presence.isOnline(e.getId()),
+                e.getStatusMessage(), e.getAvailability(), e.getAvatarColor(), e.getAvatarImage());
     }
 
     public MessageDto message(ChatMessage m) {

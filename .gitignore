@@ -34,10 +34,16 @@ build/
 
 ### SRGH Talk ###
 frontend/node_modules/
-frontend/release-1.9.2/
+frontend/dist/
+frontend/release*
+frontend/win-unpacked/
+frontend/**/win-unpacked.tmp/
+frontend/*.exe
+frontend/*.zip
+frontend/*.7z
+
 frontend/*.tsbuildinfo
 data/
 uploads/
-server.log
-server-error.log
+*.log
 .env

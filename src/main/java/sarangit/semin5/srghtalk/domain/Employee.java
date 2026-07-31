@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
         @Index(name = "idx_employee_department", columnList = "department_id")
 })
 public class Employee {
-    public enum Role { USER, ADMIN }
+    public enum Role { USER, NOTICE_WRITER, ADMIN }
     public enum Status { ACTIVE, LOCKED, RETIRED }
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -34,6 +34,24 @@ public class Employee {
 
     @Column(length = 120)
     private String email;
+
+    @Column(length = 20)
+    private String extensionNumber;
+
+    @Column(length = 120)
+    private String statusMessage;
+
+    @Column(length = 20)
+    @Builder.Default
+    private String availability = "ONLINE";
+
+    @Column(length = 20)
+    @Builder.Default
+    private String avatarColor = "#10adc8";
+
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
+    private String avatarImage;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "department_id")

@@ -26,7 +26,7 @@ public class AdminController {
     private final DtoMapper mapper;
 
     public record EmployeeRequest(@NotBlank String employeeNumber, String password, @NotBlank String name,
-                                  String position, String phone, String email, Long departmentId,
+                                  String position, String phone, String email, String extensionNumber, Long departmentId,
                                   Employee.Role role, Employee.Status status) {}
     public record DepartmentRequest(@NotBlank String name, String extensionNumber, Boolean active) {}
 
@@ -53,6 +53,7 @@ public class AdminController {
         Employee employee = Employee.builder().employeeNumber(body.employeeNumber()).name(body.name())
                 .passwordHash(auth.encodePassword(body.password() == null ? "1234" : body.password()))
                 .position(body.position()).phone(body.phone()).email(body.email()).department(department)
+                .extensionNumber(body.extensionNumber())
                 .role(body.role() == null ? Employee.Role.USER : body.role())
                 .status(body.status() == null ? Employee.Status.ACTIVE : body.status()).build();
         return mapper.employee(employees.save(employee));
@@ -68,12 +69,27 @@ public class AdminController {
         employee.setPosition(body.position());
         employee.setPhone(body.phone());
         employee.setEmail(body.email());
+        employee.setExtensionNumber(body.extensionNumber());
         employee.setRole(body.role() == null ? employee.getRole() : body.role());
         employee.setStatus(body.status() == null ? employee.getStatus() : body.status());
-        if (body.departmentId() != null) employee.setDepartment(departments.findById(body.departmentId())
+        employee.setDepartment(body.departmentId() == null ? null : departments.findById(body.departmentId())
                 .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "부서를 찾을 수 없습니다.")));
         if (body.password() != null && !body.password().isBlank()) employee.setPasswordHash(auth.encodePassword(body.password()));
-        return mapper.employee(employee);
+        return mapper.employee(employees.save(employee));
+    }
+
+    @DeleteMapping("/employees/{id}")
+    public void deleteEmployee(HttpServletRequest request, @PathVariable Long id) {
+        Employee current = auth.authenticate(request);
+        auth.requireAdmin(current);
+        if (current.getId().equals(id)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "현재 로그인한 관리자 계정은 삭제할 수 없습니다.");
+        }
+        Employee employee = employees.findById(id)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "직원을 찾을 수 없습니다."));
+        employee.setStatus(Employee.Status.RETIRED);
+        presence.setOnline(employee.getId(), false);
+        employees.save(employee);
     }
 
     @PostMapping("/departments")

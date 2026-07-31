@@ -30,6 +30,7 @@ public class FileController {
         String encoded = URLEncoder.encode(file.originalName(), StandardCharsets.UTF_8).replace("+", "%20");
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(file.contentType()))
+                .contentLength(file.sizeBytes())
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + encoded)
                 .body(file.resource());
     }

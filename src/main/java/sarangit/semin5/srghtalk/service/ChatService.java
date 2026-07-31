@@ -3,9 +3,10 @@ package sarangit.semin5.srghtalk.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import sarangit.semin5.srghtalk.api.ApiDtos.*;
 import sarangit.semin5.srghtalk.api.ApiException;
 import sarangit.semin5.srghtalk.domain.*;
@@ -22,7 +23,7 @@ public class ChatService {
     private final ChatMessageRepository messages;
     private final EmployeeRepository employees;
     private final DtoMapper mapper;
-    private final SimpMessagingTemplate messaging;
+    private final RealtimePublisher realtime;
 
     @Transactional(readOnly = true)
     public List<RoomDto> roomsFor(Employee employee) {
@@ -31,9 +32,16 @@ public class ChatService {
             MessageDto last = messages.findTopByRoomIdOrderByIdDesc(room.getId()).map(mapper::message).orElse(null);
             long unread = last == null ? 0 : messages.countByRoomIdAndIdGreaterThan(
                     room.getId(), Optional.ofNullable(self.getLastReadMessageId()).orElse(0L));
-            List<EmployeeDto> roomMembers = members.findAllByRoomId(room.getId()).stream()
+            List<RoomMember> memberships = members.findAllByRoomId(room.getId());
+            List<EmployeeDto> roomMembers = memberships.stream()
                     .map(RoomMember::getEmployee).map(mapper::employee).toList();
-            return new RoomDto(room.getId(), room.getName(), room.getType().name(), roomMembers.size(),
+            String displayName = memberships.stream()
+                    .map(RoomMember::getEmployee)
+                    .filter(member -> !member.getId().equals(employee.getId()))
+                    .map(Employee::getName)
+                    .collect(java.util.stream.Collectors.joining(", "));
+            if (displayName.isBlank()) displayName = "나와의 채팅";
+            return new RoomDto(room.getId(), displayName, room.getType().name(), roomMembers.size(),
                     unread, last, roomMembers);
         }).toList();
     }
@@ -42,9 +50,23 @@ public class ChatService {
     public RoomDto create(Employee creator, String name, ChatRoom.Type type, List<Long> employeeIds) {
         Set<Long> ids = new LinkedHashSet<>(employeeIds);
         ids.add(creator.getId());
-        if (ids.size() < 2) throw new ApiException(HttpStatus.BAD_REQUEST, "대화 상대를 선택해 주세요.");
         List<Employee> selected = employees.findAllById(ids);
         if (selected.size() != ids.size()) throw new ApiException(HttpStatus.BAD_REQUEST, "존재하지 않는 직원이 포함되어 있습니다.");
+        if (ids.size() <= 2) {
+            Optional<ChatRoom> existingRoom = rooms.findAllForEmployee(creator.getId()).stream()
+                    .filter(candidate -> members.findAllByRoomId(candidate.getId()).stream()
+                            .map(member -> member.getEmployee().getId())
+                            .collect(java.util.stream.Collectors.toSet())
+                            .equals(ids))
+                    .findFirst();
+            if (existingRoom.isPresent()) {
+                Long existingRoomId = existingRoom.get().getId();
+                return roomsFor(creator).stream()
+                        .filter(room -> room.id().equals(existingRoomId))
+                        .findFirst()
+                        .orElseThrow();
+            }
+        }
         String roomName = name == null || name.isBlank()
                 ? selected.stream().filter(e -> !e.getId().equals(creator.getId())).map(Employee::getName).reduce((a,b) -> a + ", " + b).orElse("새 대화")
                 : name.trim();
@@ -52,7 +74,7 @@ public class ChatService {
         ChatRoom room = rooms.save(ChatRoom.builder().name(roomName).type(type).createdBy(creator)
                 .createdAt(now).updatedAt(now).build());
         members.saveAll(selected.stream().map(e -> RoomMember.builder().room(room).employee(e).joinedAt(now).build()).toList());
-        messaging.convertAndSend("/topic/rooms", (Object) Map.of("type", "ROOM_CREATED", "roomId", room.getId()));
+        realtime.publish("/topic/rooms", Map.of("type", "ROOM_CREATED", "roomId", room.getId()));
         return roomsFor(creator).stream().filter(r -> r.id().equals(room.getId())).findFirst().orElseThrow();
     }
 
@@ -66,6 +88,11 @@ public class ChatService {
 
     @Transactional
     public MessageDto send(Employee sender, Long roomId, String content, ChatMessage.Type type) {
+        return send(sender, roomId, content, type, true);
+    }
+
+    @Transactional
+    public MessageDto send(Employee sender, Long roomId, String content, ChatMessage.Type type, boolean publish) {
         membership(roomId, sender.getId());
         if (content == null || content.isBlank()) throw new ApiException(HttpStatus.BAD_REQUEST, "메시지를 입력해 주세요.");
         ChatRoom room = rooms.findById(roomId).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "대화방을 찾을 수 없습니다."));
@@ -74,8 +101,12 @@ public class ChatService {
         room.setUpdatedAt(saved.getSentAt());
         markRead(sender, roomId, saved.getId());
         MessageDto dto = mapper.message(saved);
-        messaging.convertAndSend("/topic/rooms/" + roomId, dto);
+        if (publish) realtime.publish("/topic/rooms/" + roomId, dto);
         return dto;
+    }
+
+    public void publishMessage(Long roomId, MessageDto dto) {
+        realtime.publish("/topic/rooms/" + roomId, dto);
     }
 
     @Transactional
@@ -83,8 +114,21 @@ public class ChatService {
         RoomMember member = membership(roomId, employee.getId());
         if (member.getLastReadMessageId() == null || member.getLastReadMessageId() < messageId) {
             member.setLastReadMessageId(messageId);
-            messaging.convertAndSend("/topic/rooms/" + roomId + "/read",
-                    (Object) Map.of("roomId", roomId, "employeeId", employee.getId(), "messageId", messageId));
+            members.saveAndFlush(member);
+            Map<String, Long> event = Map.of(
+                    "roomId", roomId,
+                    "employeeId", employee.getId(),
+                    "messageId", messageId);
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        realtime.publish("/topic/rooms/" + roomId + "/read", event);
+                    }
+                });
+            } else {
+                realtime.publish("/topic/rooms/" + roomId + "/read", event);
+            }
         }
     }
 
@@ -97,8 +141,18 @@ public class ChatService {
         }
         message.setDeleted(true);
         message.setContent(null);
-        messaging.convertAndSend("/topic/rooms/" + message.getRoom().getId(),
-                (Object) Map.of("type", "MESSAGE_DELETED", "messageId", messageId));
+        realtime.publish("/topic/rooms/" + message.getRoom().getId(),
+                Map.of("type", "MESSAGE_DELETED", "messageId", messageId));
+    }
+
+    @Transactional
+    public void leave(Employee employee, Long roomId) {
+        RoomMember member = membership(roomId, employee.getId());
+        members.delete(member);
+        realtime.publish("/topic/rooms", Map.of(
+                "type", "ROOM_MEMBER_LEFT",
+                "roomId", roomId,
+                "employeeId", employee.getId()));
     }
 
     public RoomMember membership(Long roomId, Long employeeId) {
