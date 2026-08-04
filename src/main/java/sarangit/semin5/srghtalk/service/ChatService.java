@@ -81,7 +81,9 @@ public class ChatService {
             if (memberName.isBlank()) memberName = "나와의 채팅";
             return RoomMember.builder().room(room).employee(e).joinedAt(now).customName(memberName).build();
         }).toList());
-        publishAfterCommit("/topic/rooms", Map.of("type", "ROOM_CREATED", "roomId", room.getId()));
+        Map<String, Object> roomCreated = Map.of("type", "ROOM_CREATED", "roomId", room.getId());
+        publishAfterCommit("/topic/rooms", roomCreated);
+        selected.forEach(target -> publishAfterCommit("/topic/employees/" + target.getId() + "/rooms", roomCreated));
         return roomsFor(creator).stream().filter(r -> r.id().equals(room.getId())).findFirst().orElseThrow();
     }
 

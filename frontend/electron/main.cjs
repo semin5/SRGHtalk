@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, powerMonitor, safeStorage, screen, session, shell } = require("electron");
+const { app, BrowserWindow, desktopCapturer, ipcMain, powerMonitor, safeStorage, screen, session, shell } = require("electron");
 const fs = require("fs");
 const path = require("path");
 
@@ -12,10 +12,16 @@ if (process.platform === "win32") {
 
 let mainWindow;
 let idleAwaySent = false;
+let idleAwaySeconds = 300;
+let screenLocked = false;
 let organizationWindow;
 const chatWindows = new Map();
 const noticeWindows = new Map();
+const imageViewerWindows = new Map();
 const notificationWindows = [];
+let regionCaptureWindow;
+let regionCaptureOwner;
+const applicationIcon = path.join(__dirname, "..", "build", "SRGH_logo.ico");
 
 function closeAuxiliaryWindows() {
   for (const chatWindow of chatWindows.values()) {
@@ -26,6 +32,10 @@ function closeAuxiliaryWindows() {
     if (!noticeWindow.isDestroyed()) noticeWindow.destroy();
   }
   noticeWindows.clear();
+  for (const viewerWindow of imageViewerWindows.values()) {
+    if (!viewerWindow.isDestroyed()) viewerWindow.destroy();
+  }
+  imageViewerWindows.clear();
   if (organizationWindow && !organizationWindow.isDestroyed()) organizationWindow.destroy();
   organizationWindow = undefined;
   for (const notificationWindow of notificationWindows) {
@@ -92,11 +102,11 @@ function createNotificationToast(options = {}) {
     body{padding:6px;background:transparent}
     .toast{position:relative;height:82px;display:flex;align-items:center;gap:12px;padding:13px 16px;color:#26363b;background:linear-gradient(145deg,#fff,#f6fbfc);border:1px solid #cfe3e7;border-radius:16px;box-shadow:0 14px 34px #183a4550;overflow:hidden;animation:enter .24s cubic-bezier(.2,.8,.2,1);cursor:pointer;user-select:none;touch-action:none;transition:transform .18s ease,opacity .18s ease}
     .toast.dragging{transition:none;cursor:grabbing}
-    .toast:before{content:"";position:absolute;inset:0 auto 0 0;width:5px;background:linear-gradient(#16b8d1,#078fa9)}
-    .logo{width:42px;height:42px;display:grid;place-items:center;flex:0 0 auto;color:#fff;background:linear-gradient(145deg,#17b7d0,#078fa9);border-radius:13px;font-size:19px;font-weight:900;box-shadow:0 6px 15px #078fa938}
-    .copy{min-width:0;display:grid;gap:5px}.top{display:flex;align-items:center;gap:7px}.top strong{font-size:12px;line-height:1.2}.top span{padding:2px 6px;color:#078fa9;background:#e4f7fa;border-radius:8px;font-size:8px;font-weight:700}
+    .toast:before{content:"";position:absolute;inset:0 auto 0 0;width:5px;background:linear-gradient(#173b95,#173b95)}
+    .logo{width:42px;height:42px;display:grid;place-items:center;flex:0 0 auto;color:#fff;background:linear-gradient(145deg,#173b95,#173b95);border-radius:13px;font-size:19px;font-weight:900;box-shadow:0 6px 15px #173b9538}
+    .copy{min-width:0;display:grid;gap:5px}.top{display:flex;align-items:center;gap:7px}.top strong{font-size:12px;line-height:1.2}.top span{padding:2px 6px;color:#173b95;background:#e4f7fa;border-radius:8px;font-size:8px;font-weight:700}
     p{margin:0;overflow:hidden;color:#66777d;font-size:10px;line-height:1.45;text-overflow:ellipsis;white-space:nowrap}
-    .dot{position:absolute;right:13px;top:13px;width:7px;height:7px;background:#16b8d1;border-radius:50%;box-shadow:0 0 0 4px #e5f7fa}
+    .dot{position:absolute;right:13px;top:13px;width:7px;height:7px;background:#173b95;border-radius:50%;box-shadow:0 0 0 4px #e5f7fa}
     @keyframes enter{from{opacity:0;transform:translateX(24px) scale(.97)}}
   </style></head><body><div class="toast"><div class="logo">S</div><div class="copy"><div class="top"><strong>${title}</strong><span>새 메시지</span></div><p>${body}</p></div><i class="dot"></i></div><script>
     const toast = document.querySelector(".toast");
@@ -184,6 +194,7 @@ function serverConfig() {
 function createWindow() {
   mainWindow = new BrowserWindow({
     title: "사랑톡",
+    icon: applicationIcon,
     width: 430,
     height: 760,
     minWidth: 380,
@@ -261,6 +272,7 @@ function createChatWindow(roomId) {
 
   const chatWindow = new BrowserWindow({
     title: "사랑톡 채팅",
+    icon: applicationIcon,
     skipTaskbar: false,
     x: chatX,
     y: chatY,
@@ -299,6 +311,66 @@ function createChatWindow(roomId) {
   chatWindow.on("closed", () => chatWindows.delete(roomId));
 }
 
+function createImageViewerWindow(roomId, fileId) {
+  const key = `${roomId}-${fileId}`;
+  const existing = imageViewerWindows.get(key);
+  if (existing && !existing.isDestroyed()) { existing.show(); existing.focus(); return; }
+  const anchor = BrowserWindow.getFocusedWindow()?.getBounds() || screen.getPrimaryDisplay().workArea;
+  const display = screen.getDisplayMatching(anchor);
+  const width = Math.min(880, display.workArea.width);
+  const height = Math.min(760, display.workArea.height);
+  const viewer = new BrowserWindow({
+    title: "사랑톡 사진 보기", icon: applicationIcon, width, height,
+    x: Math.round(display.workArea.x + (display.workArea.width - width) / 2),
+    y: Math.round(display.workArea.y + (display.workArea.height - height) / 2),
+    minWidth: 620, minHeight: 520, frame: false, titleBarStyle: "hidden", maximizable: false,
+    backgroundColor: "#111719", show: false, autoHideMenuBar: true,
+    webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, nodeIntegration: false, sandbox: true, devTools: !app.isPackaged },
+  });
+  imageViewerWindows.set(key, viewer);
+  viewer.loadFile(path.join(__dirname, "..", "dist", "index.html"), { query: { ...serverConfig(), imageViewerRoomId: String(roomId), imageViewerFileId: String(fileId) } });
+  viewer.once("ready-to-show", () => viewer.show());
+  viewer.webContents.on("before-input-event", (event, input) => { if (input.key === "Escape" && input.type === "keyDown") { event.preventDefault(); viewer.close(); } });
+  viewer.on("closed", () => imageViewerWindows.delete(key));
+}
+
+async function captureDisplay(displayId) {
+  const display = screen.getAllDisplays().find(item => String(item.id) === String(displayId)) || screen.getPrimaryDisplay();
+  const width = Math.max(1, Math.round(display.bounds.width * display.scaleFactor));
+  const height = Math.max(1, Math.round(display.bounds.height * display.scaleFactor));
+  const sources = await desktopCapturer.getSources({ types: ["screen"], thumbnailSize: { width, height }, fetchWindowIcons: false });
+  const source = sources.find(item => String(item.display_id) === String(display.id)) || sources[0];
+  if (!source) throw new Error("캡처할 화면을 찾지 못했습니다.");
+  return { display, dataUrl: source.thumbnail.toDataURL() };
+}
+
+async function startRegionCapture(owner) {
+  if (regionCaptureWindow && !regionCaptureWindow.isDestroyed()) regionCaptureWindow.destroy();
+  regionCaptureOwner = owner;
+  const cursor = screen.getCursorScreenPoint();
+  const { display, dataUrl } = await captureDisplay(screen.getDisplayNearestPoint(cursor).id);
+  regionCaptureWindow = new BrowserWindow({
+    ...display.bounds,
+    frame: false, transparent: false, resizable: false, movable: false,
+    alwaysOnTop: true, skipTaskbar: true, show: false,
+    webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, nodeIntegration: false, sandbox: true },
+  });
+  const html = `<!doctype html><html><head><meta charset="utf-8"><style>
+    *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;cursor:crosshair;font-family:"Malgun Gothic",sans-serif;user-select:none}
+    #shot{position:absolute;inset:0;width:100%;height:100%;object-fit:fill}.shade{position:absolute;inset:0;background:#08121766}.selection{display:none;position:absolute;border:2px solid #61d5e6;background:#61d5e620;box-shadow:0 0 0 9999px #08121788}.measure{position:absolute;padding:6px 9px;color:#fff;background:#10242ddd;border:1px solid #ffffff26;border-radius:8px;font-size:12px;pointer-events:none}.tip{position:fixed;left:50%;top:22px;transform:translateX(-50%);padding:9px 14px;color:#fff;background:#10242ddd;border-radius:10px;font-size:12px;pointer-events:none}
+  </style></head><body><img id="shot" src="${dataUrl}"><div class="shade"></div><div class="selection"></div><div class="measure"></div><div class="tip">캡처할 영역을 왼쪽 위에서 오른쪽 아래로 드래그하세요 · ESC 취소</div><script>
+    const shot=document.querySelector('#shot'), selection=document.querySelector('.selection'), measure=document.querySelector('.measure'); let start=null;
+    const position=(e)=>{ const x=Math.round(e.screenX),y=Math.round(e.screenY); measure.textContent=start ? 'X '+x+' · Y '+y+' ('+Math.max(0,e.clientX-start.x)+' × '+Math.max(0,e.clientY-start.y)+')' : 'X '+x+' · Y '+y; measure.style.left=Math.max(8,Math.min(innerWidth-220,e.clientX+14))+'px'; measure.style.top=Math.max(8,Math.min(innerHeight-38,e.clientY+14))+'px'; };
+    addEventListener('mousemove',e=>{position(e);if(!start)return;const w=Math.max(0,e.clientX-start.x),h=Math.max(0,e.clientY-start.y);selection.style.cssText='display:block;left:'+start.x+'px;top:'+start.y+'px;width:'+w+'px;height:'+h+'px';});
+    addEventListener('mousedown',e=>{if(e.button!==0)return;start={x:e.clientX,y:e.clientY,screenX:e.screenX,screenY:e.screenY};selection.style.display='block';position(e)});
+    addEventListener('mouseup',e=>{if(!start||e.button!==0)return;const w=Math.max(0,e.clientX-start.x),h=Math.max(0,e.clientY-start.y);if(w<4||h<4){start=null;selection.style.display='none';return}const sx=shot.naturalWidth/innerWidth,sy=shot.naturalHeight/innerHeight,c=document.createElement('canvas');c.width=Math.round(w*sx);c.height=Math.round(h*sy);c.getContext('2d').drawImage(shot,start.x*sx,start.y*sy,w*sx,h*sy,0,0,c.width,c.height);window.srghDesktop.completeRegionCapture(c.toDataURL('image/png'));});
+    addEventListener('keydown',e=>{if(e.key==='Escape')window.srghDesktop.cancelRegionCapture()});
+  </script></body></html>`;
+  regionCaptureWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  regionCaptureWindow.once("ready-to-show", () => { regionCaptureWindow.show(); regionCaptureWindow.focus(); });
+  regionCaptureWindow.on("closed", () => { regionCaptureWindow = undefined; regionCaptureOwner = undefined; });
+}
+
 function createOrganizationWindow() {
   if (organizationWindow && !organizationWindow.isDestroyed()) {
     organizationWindow.close();
@@ -313,6 +385,7 @@ function createOrganizationWindow() {
   const y = Math.max(display.workArea.y, Math.min(anchor.y, display.workArea.y + display.workArea.height - height));
   organizationWindow = new BrowserWindow({
     title: "사랑톡 조직도",
+    icon: applicationIcon,
     skipTaskbar: false,
     x, y, width, height,
     minWidth: 380,
@@ -362,7 +435,7 @@ function createNoticeWindow(key, query, title) {
   if (x + width > display.workArea.x + display.workArea.width) x = Math.max(display.workArea.x, anchor.x - width - 10);
   const y = Math.max(display.workArea.y, Math.min(anchor.y, display.workArea.y + display.workArea.height - height));
   const noticeWindow = new BrowserWindow({
-    title, skipTaskbar: false, x, y, width, height, minWidth: 380, minHeight: 620,
+    title, icon: applicationIcon, skipTaskbar: false, x, y, width, height, minWidth: 380, minHeight: 620,
     maximizable: false, frame: false, titleBarStyle: "hidden", thickFrame: false,
     roundedCorners: false, show: false, backgroundColor: "#f5f8fa", autoHideMenuBar: true,
     webPreferences: {
@@ -388,18 +461,26 @@ app.whenReady().then(() => {
   });
   createWindow();
   powerMonitor.on("lock-screen", () => {
+    screenLocked = true;
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("presence:auto-away");
     idleAwaySent = true;
   });
+  powerMonitor.on("unlock-screen", () => {
+    screenLocked = false;
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("presence:auto-active");
+    idleAwaySent = false;
+  });
   setInterval(() => {
+    if (screenLocked) return;
     const idle = powerMonitor.getSystemIdleTime();
-    if (idle >= 300 && !idleAwaySent) {
+    if (idle >= idleAwaySeconds && !idleAwaySent) {
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("presence:auto-away");
       idleAwaySent = true;
-    } else if (idle < 300) {
+    } else if (idle < idleAwaySeconds) {
+      if (idleAwaySent && mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("presence:auto-active");
       idleAwaySent = false;
     }
-  }, 15000).unref();
+  }, 1000).unref();
 });
 
 ipcMain.on("window:minimize", (event) => {
@@ -425,6 +506,9 @@ ipcMain.on("notice:open-window", (_event, noticeId) => {
 ipcMain.on("notice:compose-window", () => createNoticeWindow("compose", { noticeCompose: "1" }, "사랑톡 쪽지 작성"));
 
 ipcMain.on("settings:apply", (event, settings = {}) => {
+  if (Number.isFinite(Number(settings.awayMinutes))) {
+    idleAwaySeconds = Math.min(60, Math.max(1, Number(settings.awayMinutes))) * 60;
+  }
   if (typeof settings.alwaysOnTop === "boolean") {
     for (const applicationWindow of BrowserWindow.getAllWindows()) {
       applicationWindow.setAlwaysOnTop(settings.alwaysOnTop);
@@ -445,6 +529,31 @@ ipcMain.on("settings:apply", (event, settings = {}) => {
 
 ipcMain.on("notification:show", (_event, options = {}) => {
   createNotificationToast(options);
+});
+ipcMain.on("external:open", (_event, url) => {
+  if (typeof url === "string" && /^https?:\/\//i.test(url)) void shell.openExternal(url);
+});
+ipcMain.on("image:open-viewer", (_event, payload = {}) => {
+  const roomId = Number(payload.roomId), fileId = Number(payload.fileId);
+  if (Number.isInteger(roomId) && roomId > 0 && Number.isInteger(fileId) && fileId > 0) createImageViewerWindow(roomId, fileId);
+});
+
+ipcMain.on("window:set-opacity", (event, opacity) => {
+  const target = BrowserWindow.fromWebContents(event.sender);
+  if (target && target !== mainWindow) target.setOpacity(Math.min(1, Math.max(0.25, Number(opacity) || 1)));
+});
+
+ipcMain.handle("capture:list-displays", () => screen.getAllDisplays().map((display, index) => ({
+  id: String(display.id), label: `모니터 ${index + 1}`, width: display.bounds.width, height: display.bounds.height, primary: display.id === screen.getPrimaryDisplay().id,
+})));
+ipcMain.handle("capture:screen", async (_event, displayId) => (await captureDisplay(displayId)).dataUrl);
+ipcMain.on("capture:start-region", event => void startRegionCapture(event.sender));
+ipcMain.on("capture:region-complete", (_event, dataUrl) => {
+  if (regionCaptureOwner && !regionCaptureOwner.isDestroyed()) regionCaptureOwner.send("capture:region-result", dataUrl);
+  if (regionCaptureWindow && !regionCaptureWindow.isDestroyed()) regionCaptureWindow.close();
+});
+ipcMain.on("capture:region-cancel", () => {
+  if (regionCaptureWindow && !regionCaptureWindow.isDestroyed()) regionCaptureWindow.close();
 });
 
 ipcMain.on("auth:logout", () => closeAuxiliaryWindows());

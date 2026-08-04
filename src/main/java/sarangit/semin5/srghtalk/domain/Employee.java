@@ -47,7 +47,7 @@ public class Employee {
 
     @Column(length = 20)
     @Builder.Default
-    private String avatarColor = "#10adc8";
+    private String avatarColor = "#173b95";
 
     @Lob
     @Column(columnDefinition = "LONGTEXT")
