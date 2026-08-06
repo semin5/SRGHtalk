@@ -24,6 +24,8 @@ public class RoomMember {
 
     private Long lastReadMessageId;
 
+    private Long clearedMessageId;
+
     @Builder.Default
     private boolean muted = false;
 

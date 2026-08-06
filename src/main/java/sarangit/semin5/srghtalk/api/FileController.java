@@ -20,8 +20,9 @@ public class FileController {
 
     @PostMapping(value = "/rooms/{roomId}/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public MessageDto upload(HttpServletRequest request, @PathVariable Long roomId,
-                             @RequestPart("file") MultipartFile file) {
-        return files.upload(auth.authenticate(request), roomId, file);
+                             @RequestPart("file") MultipartFile file,
+                             @RequestPart(value = "batchId", required = false) String batchId) {
+        return files.upload(auth.authenticate(request), roomId, file, batchId);
     }
 
     @GetMapping("/files/{fileId}")

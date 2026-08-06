@@ -25,6 +25,9 @@ public class FileAttachment {
     @Column(nullable = false)
     private long sizeBytes;
 
+    @Column(length = 64)
+    private String batchId;
+
     @Column(nullable = false)
     private LocalDateTime uploadedAt;
 }

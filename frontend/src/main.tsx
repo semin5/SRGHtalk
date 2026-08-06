@@ -12,6 +12,7 @@ import html2canvas from "html2canvas";
 import {
   ArrowLeft,
   Bell,
+  Bookmark,
   Building2,
   ChevronDown,
   ChevronUp,
@@ -25,6 +26,7 @@ import {
   FolderOpen,
   Image,
   Link2,
+  Lock,
   LogOut,
   Mail,
   Menu,
@@ -43,6 +45,7 @@ import {
   Send,
   Settings,
   ShieldCheck,
+  SlidersHorizontal,
   Smile,
   Star,
   Sun,
@@ -551,10 +554,7 @@ function PendingAttachment({
 function DesktopTitleBar() {
   return (
     <header className="desktop-titlebar">
-      <div className="desktop-title">
-        <span className="titlebar-name">사랑톡</span>
-        <span className="titlebar-hospital">사랑의병원 업무 메신저</span>
-      </div>
+      <div className="desktop-title" aria-hidden="true" />
       <div className="window-controls">
         <button
           type="button"
@@ -589,6 +589,11 @@ function SettingsModal({
   onClose: () => void;
   pageMode?: boolean;
 }) {
+  useEffect(() => {
+    if (!pageMode) return;
+    document.documentElement.classList.add("embedded-settings-page");
+    return () => document.documentElement.classList.remove("embedded-settings-page");
+  }, [pageMode]);
   const update = <K extends keyof MessengerSettings>(
     key: K,
     nextValue: MessengerSettings[K],
@@ -1495,6 +1500,11 @@ function ProfileModal({
   onClose: () => void;
   pageMode?: boolean;
 }) {
+  useEffect(() => {
+    if (!pageMode) return;
+    document.documentElement.classList.add("embedded-settings-page");
+    return () => document.documentElement.classList.remove("embedded-settings-page");
+  }, [pageMode]);
   const [form, setForm] = useState({
     name: employee.name,
     extensionNumber: employee.extensionNumber ?? "",
@@ -1863,6 +1873,9 @@ function NewRoomModal({
   meDepartmentName,
   onClose,
   onCreated,
+  title = "새 대화 시작",
+  actionLabel = "대화 시작",
+  onSelection,
 }: {
   employees: Employee[];
   rooms: Room[];
@@ -1870,6 +1883,9 @@ function NewRoomModal({
   meDepartmentName?: string;
   onClose: () => void;
   onCreated: (r: Room) => void;
+  title?: string;
+  actionLabel?: string;
+  onSelection?: (ids: number[]) => Promise<void>;
 }) {
   const [selected, setSelected] = useState<number[]>([]);
   const [search, setSearch] = useState("");
@@ -1894,6 +1910,11 @@ function NewRoomModal({
   }, [filteredEmployees]);
   const create = async () => {
     if (!selected.length) return;
+    if (onSelection) {
+      await onSelection(selected);
+      onClose();
+      return;
+    }
     const participantIds = new Set([meId, ...selected]);
     const existing = rooms.find(
       (room) =>
@@ -1907,7 +1928,7 @@ function NewRoomModal({
     <div className="modal-backdrop">
       <section className="modal new-room-modal">
         <header>
-          <div><h3>새 대화 시작</h3><p>이름이나 부서로 대화 상대를 찾아보세요.</p></div>
+          <div><h3>{title}</h3><p>이름이나 부서로 대화 상대를 찾아보세요.</p></div>
           <button onClick={onClose}>
             <X />
           </button>
@@ -1965,7 +1986,7 @@ function NewRoomModal({
             취소
           </button>
           <button onClick={create} disabled={!selected.length}>
-            대화 시작
+            {actionLabel}
           </button>
         </footer>
       </section>
@@ -2821,6 +2842,13 @@ function Messenger({
     null,
   );
   const [chatSearchOpen, setChatSearchOpen] = useState(false);
+  const [chatOptionsOpen, setChatOptionsOpen] = useState(false);
+  const [addParticipantsOpen, setAddParticipantsOpen] = useState(false);
+  const [composerLocked, setComposerLocked] = useState(false);
+  const [chatUtility, setChatUtility] = useState<"files" | "notices" | "bookmarks" | null>(null);
+  const [bookmarkedMessageIds, setBookmarkedMessageIds] = useState<number[]>(() =>
+    JSON.parse(localStorage.getItem("srgh_chat_bookmarks") ?? "[]"),
+  );
   const [chatSearchQuery, setChatSearchQuery] = useState("");
   const [chatSearchIndex, setChatSearchIndex] = useState(0);
   const [preferences, setPreferences] =
@@ -3008,6 +3036,18 @@ function Messenger({
     setActiveId((id) => id ?? data[0]?.id);
   }, []);
   useEffect(() => {
+    const synchronizeClearedHistory = (event: StorageEvent) => {
+      if (event.key !== "srgh_room_history_cleared" || !event.newValue) return;
+      try {
+        const payload = JSON.parse(event.newValue) as { roomId?: number };
+        if (payload.roomId === activeIdRef.current) setMessages([]);
+        void refreshRooms();
+      } catch { /* ignore malformed synchronization data */ }
+    };
+    window.addEventListener("storage", synchronizeClearedHistory);
+    return () => window.removeEventListener("storage", synchronizeClearedHistory);
+  }, [refreshRooms]);
+  useEffect(() => {
     const requests: Promise<unknown>[] = [
       refreshRooms(),
       api.employees().then(setEmployees),
@@ -3078,7 +3118,13 @@ function Messenger({
       onConnect: () => {
         setSocketConnected(true);
         client.subscribe("/topic/rooms", () => void refreshRooms());
-        client.subscribe(`/topic/employees/${me.id}/rooms`, () => void refreshRooms());
+        client.subscribe(`/topic/employees/${me.id}/rooms`, (frame) => {
+          try {
+            const event = JSON.parse(frame.body) as { type?: string; roomId?: number };
+            if (event.type === "ROOM_HISTORY_CLEARED" && event.roomId === activeIdRef.current) setMessages([]);
+          } catch { /* older room events may not contain JSON */ }
+          void refreshRooms();
+        });
         client.subscribe(
           "/topic/presence",
           () =>
@@ -3161,17 +3207,7 @@ function Messenger({
           const event = JSON.parse(frame.body);
           if (roomId === activeIdRef.current) {
             if (event.type === "MESSAGE_DELETED") {
-              setMessages((current) =>
-                current.map((message) =>
-                  message.id === event.messageId
-                    ? {
-                        ...message,
-                        content: "삭제된 메시지입니다.",
-                        file: undefined,
-                      }
-                    : message,
-                ),
-              );
+              setMessages((current) => current.filter((message) => message.id !== event.messageId));
             } else {
               setMessages((current) =>
                 current.some((message) => message.id === event.id)
@@ -3365,9 +3401,12 @@ function Messenger({
     if (pendingFiles.length) {
       const selectedFiles = pendingFiles;
       setPendingFiles([]);
-      const sentFiles = await Promise.all(
-        selectedFiles.map((file) => api.upload(activeId, file)),
-      );
+      const imageCount = selectedFiles.filter((file) => file.type.startsWith("image/")).length;
+      const batchId = imageCount > 1 ? crypto.randomUUID() : undefined;
+      const sentFiles: Message[] = [];
+      for (const file of selectedFiles) {
+        sentFiles.push(await api.upload(activeId, file, file.type.startsWith("image/") ? batchId : undefined));
+      }
       setMessages((current) => mergeMessages(current, sentFiles));
       await refreshRooms();
       return;
@@ -3492,13 +3531,7 @@ function Messenger({
       danger: true,
       onConfirm: async () => {
         await api.deleteMessage(message.id);
-        setMessages((current) =>
-          current.map((item) =>
-            item.id === message.id
-              ? { ...item, content: "삭제된 메시지입니다.", file: undefined }
-              : item,
-          ),
-        );
+        setMessages((current) => current.filter((item) => item.id !== message.id));
       },
     });
   };
@@ -3631,6 +3664,23 @@ function Messenger({
             );
             void refreshRooms();
             openRoom(r.id);
+          }}
+        />
+      )}
+      {addParticipantsOpen && room && (
+        <NewRoomModal
+          employees={employees.filter((employee) => !room.members.some((member) => member.id === employee.id))}
+          rooms={rooms}
+          meId={me.id}
+          meDepartmentName={me.departmentName}
+          title="대화상대 추가"
+          actionLabel="대화방에 추가"
+          onClose={() => setAddParticipantsOpen(false)}
+          onCreated={() => undefined}
+          onSelection={async (ids) => {
+            const updated = await api.addRoomMembers(room.id, ids);
+            setRooms((current) => current.map((item) => item.id === updated.id ? updated : item));
+            await refreshRooms();
           }}
         />
       )}
@@ -4177,6 +4227,23 @@ function Messenger({
                 >
                   <Search />
                 </button>
+                {standaloneChat && <div className="chat-options-control">
+                  <button className={chatOptionsOpen ? "active" : ""} aria-label="현재 대화방 옵션" title="대화방 옵션" onClick={() => setChatOptionsOpen((open) => !open)}><SlidersHorizontal /></button>
+                  {chatOptionsOpen && <div className="chat-options-menu">
+                    <header><span><Avatar name={room.name} /><span><strong>{room.name}</strong><small>{room.memberCount}명 참여</small></span></span><button onClick={() => setChatOptionsOpen(false)}><X /></button></header>
+                    <div className="chat-option-participants">{room.members.slice(0, 5).map((member) => <Avatar key={member.id} name={member.name} image={member.avatarImage} color={member.avatarColor} online={member.online} availability={member.availability} />)}{room.members.length > 5 && <i>+{room.members.length - 5}</i>}</div>
+                    <button onClick={() => { setAddParticipantsOpen(true); setChatOptionsOpen(false); }}><UserRoundPlus /><span><strong>대화상대 추가</strong><small>직원을 선택해 현재 방에 초대</small></span></button>
+                    <button onClick={() => { setChatUtility("files"); setChatOptionsOpen(false); }}><FolderOpen /><span><strong>파일함</strong><small>현재 대화방의 첨부파일</small></span></button>
+                    <button onClick={() => { setChatUtility("notices"); setChatOptionsOpen(false); }}><Bell /><span><strong>공지사항</strong><small>받은 공지와 보낸 공지</small></span></button>
+                    <button onClick={() => { setChatUtility("bookmarks"); setChatOptionsOpen(false); }}><Bookmark /><span><strong>책갈피</strong><small>저장한 대화 모아보기</small></span></button>
+                    <button onClick={() => { setComposerLocked((locked) => !locked); setChatOptionsOpen(false); }}><Lock /><span><strong>입력창 잠금</strong><small>실수로 메시지를 보내지 않도록 잠금</small></span><b>{composerLocked ? "ON" : ""}</b></button>
+                    <button onClick={() => { void toggleMutedRoom(room); setChatOptionsOpen(false); }}><Bell /><span><strong>대화방 알림 끄기</strong><small>이 대화방 알림 설정</small></span><b>{room.muted ? "OFF" : ""}</b></button>
+                    <button onClick={() => { setRenameValue(room.name); setRenameRoom(room); setChatOptionsOpen(false); }}><Pencil /><span><strong>대화방 이름 설정</strong><small>나에게만 표시되는 이름</small></span></button>
+                    <button onClick={() => { const lines = messages.map((message) => { const sender = room.members.find((member) => member.id === message.senderId) ?? employees.find((employee) => employee.id === message.senderId); const senderLabel = `${message.senderName}${sender?.position ? ` ${sender.position}` : ""}`; return `[${new Date(message.sentAt).toLocaleString("ko-KR")}] ${senderLabel}: ${message.file?.originalName ?? message.content ?? ""}`; }); const blob = new Blob([lines.join("\r\n")], { type: "text/plain;charset=utf-8" }); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `${room.name}-대화내용.txt`; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); setChatOptionsOpen(false); }}><Download /><span><strong>대화내용 저장</strong><small>텍스트 파일로 저장</small></span></button>
+                    <button onClick={() => { setConfirmRequest({ title: "대화내용을 삭제할까요?", message: "내 화면에서 현재까지의 대화내용이 삭제됩니다.", confirmLabel: "내용 삭제", danger: true, onConfirm: async () => { await api.clearRoomHistory(room.id); setMessages([]); localStorage.setItem("srgh_room_history_cleared", JSON.stringify({ roomId: room.id, at: Date.now() })); } }); setChatOptionsOpen(false); }}><Trash2 /><span><strong>대화내용 삭제</strong><small>내 화면의 대화 기록 비우기</small></span></button>
+                    <button className="danger" onClick={() => { void leaveRoom(room); setChatOptionsOpen(false); }}><LogOut /><span><strong>대화방 나가기</strong><small>대화 내용에 나감 표시</small></span></button>
+                  </div>}
+                </div>}
                 <button aria-label="음성 통화">
                   <Phone />
                 </button>
@@ -4243,6 +4310,19 @@ function Messenger({
                 </button>
               </div>
             )}
+            {chatUtility && (
+              <div className="chat-utility-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setChatUtility(null); }}>
+                <section className="chat-utility-panel">
+                  <header><span>{chatUtility === "files" ? "파일함" : chatUtility === "notices" ? "공지사항" : "책갈피"}</span><button onClick={() => setChatUtility(null)}><X /></button></header>
+                  <div className="chat-utility-list scrollable">
+                    {chatUtility === "files" && messages.filter((message) => message.file).map((message) => <button key={message.id} onClick={() => void downloadMessageFile(message)}><FileText /><span><strong>{message.file?.originalName}</strong><small>{message.senderName} · {time(message.sentAt)}</small></span><Download /></button>)}
+                    {chatUtility === "notices" && notices.map((notice) => <button key={notice.id} onClick={() => { if (!notice.read && notice.senderId !== me.id) { void api.readNotice(notice.id); setNotices((current) => current.map((item) => item.id === notice.id ? { ...item, read: true } : item)); } window.srghDesktop?.openNotice(notice.id); }}><Bell /><span><strong>{notice.title}</strong><small>{notice.senderName} · {messageDate(notice.sentAt)}</small><p>{notice.content}</p></span><ExternalLink /></button>)}
+                    {chatUtility === "bookmarks" && messages.filter((message) => bookmarkedMessageIds.includes(message.id)).map((message) => <button key={message.id} onClick={() => { document.querySelector(`[data-message-id="${message.id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" }); setChatUtility(null); }}><Bookmark /><span><strong>{message.senderName}</strong><small>{message.file?.originalName ?? message.content}</small></span></button>)}
+                    {((chatUtility === "files" && !messages.some((message) => message.file)) || (chatUtility === "notices" && notices.length === 0) || (chatUtility === "bookmarks" && !messages.some((message) => bookmarkedMessageIds.includes(message.id)))) && <div className="chat-utility-empty">표시할 내용이 없습니다.</div>}
+                  </div>
+                </section>
+              </div>
+            )}
             {conversationCaptureActive && <div className="conversation-capture-guide"><Camera /><span>{conversationCaptureStart == null ? "캡처를 시작할 대화를 선택하세요." : "마지막 대화를 선택하세요. (최대 30개)"}</span><button onClick={() => { setConversationCaptureActive(false); setConversationCaptureStart(null); }}>취소</button></div>}
             <div className={`messages scrollable ${conversationCaptureActive ? "capture-selecting" : ""}`} ref={messagesRef}>
               <div className="notice">
@@ -4256,13 +4336,14 @@ function Messenger({
                   isImageAttachment(m.file) &&
                   isImageAttachment(previousMessage?.file) &&
                   previousMessage?.senderId === m.senderId &&
-                  Math.abs(+new Date(m.sentAt) - +new Date(previousMessage.sentAt)) <= 15_000;
+                  !!m.file?.batchId &&
+                  m.file.batchId === previousMessage?.file?.batchId;
                 if (groupedWithPrevious) return null;
                 const imageGroup: FileInfo[] = [];
                 if (isImageAttachment(m.file)) {
                   for (let groupIndex = index; groupIndex < messages.length; groupIndex += 1) {
                     const candidate = messages[groupIndex];
-                    if (!candidate.file || !isImageAttachment(candidate.file) || candidate.senderId !== m.senderId || Math.abs(+new Date(candidate.sentAt) - +new Date(m.sentAt)) > 15_000) break;
+                    if (!candidate.file || !isImageAttachment(candidate.file) || candidate.senderId !== m.senderId || !m.file?.batchId || candidate.file.batchId !== m.file?.batchId) break;
                     imageGroup.push(candidate.file);
                   }
                 }
@@ -4314,7 +4395,7 @@ function Messenger({
                           {m.senderId === me.id && (
                             <span className="message-meta">
                               {m.unreadCount > 0 && <b>{m.unreadCount}</b>}
-                              <time>{time(m.sentAt)}</time>
+                              <time>{time(m.sentAt)}</time>{bookmarkedMessageIds.includes(m.id) && <Bookmark className="message-bookmark-indicator" aria-label="책갈피" />}
                             </span>
                           )}
                           <div
@@ -4329,7 +4410,7 @@ function Messenger({
                             }}
                           >
                             {m.file ? (
-                              imageGroup.length > 1 ? <AttachmentGallery files={imageGroup} onImageOpen={(file) => window.srghDesktop?.openImageViewer(room.id, file.id)} /> : <Attachment file={m.file} onImageOpen={(file) => window.srghDesktop?.openImageViewer(room.id, file.id)} />
+                              imageGroup.length > 1 ? <AttachmentGallery files={imageGroup} onImageOpen={(file) => { if (!conversationCaptureActive) window.srghDesktop?.openImageViewer(room.id, file.id); }} /> : <Attachment file={m.file} onImageOpen={(file) => { if (!conversationCaptureActive) window.srghDesktop?.openImageViewer(room.id, file.id); }} />
                             ) : (
                               <div className={`message-text ${expandedMessageIds.has(m.id) ? "expanded" : ""}`}>
                                 <div className="message-text-content"><RichMessageContent text={m.content} query={chatSearchQuery} /></div>
@@ -4340,7 +4421,7 @@ function Messenger({
                           {m.senderId !== me.id && (
                             <span className="message-meta">
                               {m.unreadCount > 0 && <b>{m.unreadCount}</b>}
-                              <time>{time(m.sentAt)}</time>
+                              <time>{time(m.sentAt)}</time>{bookmarkedMessageIds.includes(m.id) && <Bookmark className="message-bookmark-indicator" aria-label="책갈피" />}
                             </span>
                           )}
                         </div>
@@ -4416,6 +4497,7 @@ function Messenger({
               </div>
               <div className="input-wrap">
                 <textarea
+                  disabled={composerLocked}
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   onKeyDown={(e) => {
@@ -4427,7 +4509,7 @@ function Messenger({
                       void send();
                     }
                   }}
-                  placeholder="메시지를 입력하세요"
+                  placeholder={composerLocked ? "입력창이 잠겨 있습니다" : "메시지를 입력하세요"}
                 />
                 <div>
                   <button>
@@ -4436,7 +4518,7 @@ function Messenger({
                   <button
                     className="send-button"
                     onClick={() => void send()}
-                    disabled={!text.trim() && pendingFiles.length === 0}
+                    disabled={composerLocked || (!text.trim() && pendingFiles.length === 0)}
                   >
                     <Send />
                   </button>
@@ -4554,6 +4636,14 @@ function Messenger({
           >
             <Copy /> 복사
           </button>
+          <button onClick={() => {
+            setBookmarkedMessageIds((current) => {
+              const next = current.includes(messageMenu.message.id) ? current.filter((id) => id !== messageMenu.message.id) : [...current, messageMenu.message.id];
+              localStorage.setItem("srgh_chat_bookmarks", JSON.stringify(next));
+              return next;
+            });
+            setMessageMenu(null);
+          }}><Bookmark /> {bookmarkedMessageIds.includes(messageMenu.message.id) ? "책갈피 해제" : "책갈피 추가"}</button>
           {messageMenu.message.file && (
             <button
               onClick={() => {
@@ -4973,8 +5063,21 @@ function App() {
   ) : (
     <Login onLogin={setMe} />
   );
+  const desktopSurface = imageViewerRoomId && imageViewerFileId
+      ? "image-viewer-shell"
+      : standaloneChat
+        ? "chat-window-shell"
+        : organization
+          ? "organization-shell"
+          : noticeCompose || noticeId
+            ? "notice-window-shell"
+            : loading
+              ? "loading-shell"
+              : !me
+        ? "login-shell"
+                : "main-window-shell";
   return window.srghDesktop?.isDesktop ? (
-    <div className="desktop-shell">
+    <div className={`desktop-shell ${desktopSurface}`}>
       <DesktopTitleBar />
       {content}
     </div>

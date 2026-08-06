@@ -93,7 +93,7 @@ public class NoticeService {
     private NoticeDto dto(Notice notice, boolean read) {
         FileDto file = notice.getStoredName() == null ? null : new FileDto(notice.getId(),
                 notice.getOriginalName(), notice.getContentType(), notice.getSizeBytes(),
-                "/api/notices/" + notice.getId() + "/file");
+                "/api/notices/" + notice.getId() + "/file", null);
         Employee sender = notice.getSender();
         List<String> recipientNames = recipients.findAllByNoticeId(notice.getId()).stream()
                 .map(item -> {

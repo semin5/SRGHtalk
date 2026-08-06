@@ -94,13 +94,37 @@ public class ChatService {
 
     @Transactional(readOnly = true)
     public List<MessageDto> history(Employee employee, Long roomId, int limit, Long beforeId) {
-        membership(roomId, employee.getId());
+        RoomMember self = membership(roomId, employee.getId());
         var page = PageRequest.of(0, Math.min(Math.max(limit, 1), 100));
         List<ChatMessage> result = beforeId == null
                 ? messages.findAllByRoomIdOrderByIdDesc(roomId, page)
                 : messages.findAllByRoomIdAndIdLessThanOrderByIdDesc(roomId, beforeId, page);
         Collections.reverse(result);
-        return result.stream().map(mapper::message).toList();
+        long cleared = Optional.ofNullable(self.getClearedMessageId()).orElse(0L);
+        return result.stream().filter(message -> message.getId() > cleared && !message.isDeleted()).map(mapper::message).toList();
+    }
+
+    @Transactional
+    public RoomDto addMembers(Employee actor, Long roomId, List<Long> employeeIds) {
+        membership(roomId, actor.getId());
+        ChatRoom room = rooms.findById(roomId).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "대화방을 찾을 수 없습니다."));
+        Set<Long> existingIds = members.findAllByRoomId(roomId).stream().map(item -> item.getEmployee().getId()).collect(java.util.stream.Collectors.toSet());
+        List<Employee> additions = employees.findAllById(employeeIds).stream().filter(item -> !existingIds.contains(item.getId())).toList();
+        LocalDateTime now = LocalDateTime.now();
+        members.saveAll(additions.stream().map(item -> RoomMember.builder().room(room).employee(item).joinedAt(now).build()).toList());
+        additions.forEach(item -> publishAfterCommit("/topic/employees/" + item.getId() + "/rooms", Map.of("type", "ROOM_CREATED", "roomId", roomId)));
+        publishAfterCommit("/topic/rooms", Map.of("type", "ROOM_MEMBERS_CHANGED", "roomId", roomId));
+        return roomsFor(actor).stream().filter(item -> item.id().equals(roomId)).findFirst().orElseThrow();
+    }
+
+    @Transactional
+    public void clearHistory(Employee employee, Long roomId) {
+        RoomMember member = membership(roomId, employee.getId());
+        member.setClearedMessageId(messages.findTopByRoomIdOrderByIdDesc(roomId).map(ChatMessage::getId).orElse(0L));
+        member.setLastReadMessageId(member.getClearedMessageId());
+        members.save(member);
+        publishAfterCommit("/topic/employees/" + employee.getId() + "/rooms",
+                Map.of("type", "ROOM_HISTORY_CLEARED", "roomId", roomId));
     }
 
     @Transactional
@@ -158,6 +182,7 @@ public class ChatService {
         }
         message.setDeleted(true);
         message.setContent(null);
+        messages.saveAndFlush(message);
         realtime.publish("/topic/rooms/" + message.getRoom().getId(),
                 Map.of("type", "MESSAGE_DELETED", "messageId", messageId));
     }
@@ -202,6 +227,8 @@ public class ChatService {
         if (pinned != null) member.setPinned(pinned);
         if (muted != null) member.setMuted(muted);
         members.save(member);
+        publishAfterCommit("/topic/employees/" + employee.getId() + "/rooms",
+                Map.of("type", "ROOM_PREFERENCES_CHANGED", "roomId", roomId));
         return roomsFor(employee).stream().filter(room -> room.id().equals(roomId)).findFirst().orElseThrow();
     }
 

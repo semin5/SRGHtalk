@@ -14,7 +14,8 @@ public final class ApiDtos {
                               String avatarColor, String avatarImage) {}
     public record MessageDto(Long id, Long roomId, Long senderId, String senderName, String type,
                              String content, LocalDateTime sentAt, long unreadCount, FileDto file) {}
-    public record FileDto(Long id, String originalName, String contentType, long sizeBytes, String downloadUrl) {}
+    public record FileDto(Long id, String originalName, String contentType, long sizeBytes, String downloadUrl,
+                          String batchId) {}
     public record RoomDto(Long id, String name, String type, int memberCount, long unreadCount,
                           MessageDto lastMessage, List<EmployeeDto> members, boolean pinned, boolean muted) {}
     public record NoticeDto(Long id, Long senderId, String senderName, String senderPosition,

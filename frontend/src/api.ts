@@ -28,6 +28,7 @@ export type FileInfo = {
   contentType: string;
   sizeBytes: number;
   downloadUrl: string;
+  batchId?: string;
 };
 export type Message = {
   id: number;
@@ -151,9 +152,10 @@ export const api = {
         type: employeeIds.length === 1 ? "DIRECT" : "GROUP",
       }),
     }),
-  upload: (roomId: number, file: File) => {
+  upload: (roomId: number, file: File, batchId?: string) => {
     const form = new FormData();
     form.append("file", file);
+    if (batchId) form.append("batchId", batchId);
     return request<Message>(`/rooms/${roomId}/files`, {
       method: "POST",
       body: form,
@@ -179,6 +181,10 @@ export const api = {
     request<void>(`/rooms/messages/${messageId}`, { method: "DELETE" }),
   leaveRoom: (roomId: number) =>
     request<void>(`/rooms/${roomId}/members/me`, { method: "DELETE" }),
+  addRoomMembers: (roomId: number, employeeIds: number[]) =>
+    request<Room>(`/rooms/${roomId}/members`, { method: "POST", body: JSON.stringify({ employeeIds }) }),
+  clearRoomHistory: (roomId: number) =>
+    request<void>(`/rooms/${roomId}/messages`, { method: "DELETE" }),
   updateRoomPreferences: (
     roomId: number,
     data: { customName?: string; pinned?: boolean; muted?: boolean },

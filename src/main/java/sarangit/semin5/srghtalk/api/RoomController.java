@@ -23,6 +23,7 @@ public class RoomController {
     public record SendRequest(String content, ChatMessage.Type type) {}
     public record ReadRequest(Long messageId) {}
     public record RoomPreferencesRequest(String customName, Boolean pinned, Boolean muted) {}
+    public record AddMembersRequest(@NotEmpty List<Long> employeeIds) {}
 
     @GetMapping
     public List<RoomDto> rooms(HttpServletRequest request) {
@@ -61,6 +62,17 @@ public class RoomController {
     @DeleteMapping("/{roomId}/members/me")
     public void leave(HttpServletRequest request, @PathVariable Long roomId) {
         chat.leave(auth.authenticate(request), roomId);
+    }
+
+    @PostMapping("/{roomId}/members")
+    public RoomDto addMembers(HttpServletRequest request, @PathVariable Long roomId,
+                              @Valid @RequestBody AddMembersRequest body) {
+        return chat.addMembers(auth.authenticate(request), roomId, body.employeeIds());
+    }
+
+    @DeleteMapping("/{roomId}/messages")
+    public void clearHistory(HttpServletRequest request, @PathVariable Long roomId) {
+        chat.clearHistory(auth.authenticate(request), roomId);
     }
 
     @PatchMapping("/{roomId}/members/me")

@@ -33,7 +33,7 @@ public class FileService {
     private long maxSize;
 
     @Transactional
-    public MessageDto upload(Employee employee, Long roomId, MultipartFile file) {
+    public MessageDto upload(Employee employee, Long roomId, MultipartFile file, String batchId) {
         if (file.isEmpty()) throw new ApiException(HttpStatus.BAD_REQUEST, "빈 파일은 업로드할 수 없습니다.");
         if (file.getSize() > maxSize) throw new ApiException(HttpStatus.PAYLOAD_TOO_LARGE, "파일 크기 제한을 초과했습니다.");
         String original = Paths.get(file.getOriginalFilename() == null ? "file" : file.getOriginalFilename())
@@ -51,7 +51,9 @@ public class FileService {
         ChatMessage message = messages.findById(sent.id()).orElseThrow();
         try {
             files.saveAndFlush(FileAttachment.builder().message(message).originalName(original).storedName(stored)
-                    .contentType(contentType).sizeBytes(file.getSize()).uploadedAt(LocalDateTime.now()).build());
+                    .contentType(contentType).sizeBytes(file.getSize())
+                    .batchId(batchId == null || batchId.isBlank() ? null : batchId.trim().substring(0, Math.min(64, batchId.trim().length())))
+                    .uploadedAt(LocalDateTime.now()).build());
             MessageDto completed = mapper.message(message);
             chat.publishMessage(roomId, completed);
             return completed;
