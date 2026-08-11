@@ -30,6 +30,11 @@ public class RoomController {
         return chat.roomsFor(auth.authenticate(request));
     }
 
+    @GetMapping("/{roomId}")
+    public RoomDto room(HttpServletRequest request, @PathVariable Long roomId) {
+        return chat.roomFor(auth.authenticate(request), roomId);
+    }
+
     @PostMapping
     public RoomDto create(HttpServletRequest request, @Valid @RequestBody CreateRoomRequest body) {
         return chat.create(auth.authenticate(request), body.name(),

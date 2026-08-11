@@ -14,6 +14,7 @@ export type Employee = {
   extensionNumber?: string;
   departmentId?: number;
   departmentName?: string;
+  departmentPath?: string;
   role: "USER" | "NOTICE_WRITER" | "ADMIN";
   status: string;
   online: boolean;
@@ -58,6 +59,9 @@ export type Department = {
   extensionNumber?: string;
   memberCount: number;
   active: boolean;
+  parentId?: number;
+  hierarchyLevel?: number;
+  fullPath?: string;
 };
 export type Notice = {
   id: number;
@@ -127,6 +131,7 @@ export const api = {
       body: JSON.stringify(data),
     }),
   rooms: () => request<Room[]>("/rooms"),
+  room: (roomId: number) => request<Room>(`/rooms/${roomId}`),
   messages: (roomId: number, beforeId?: number, limit = 30) =>
     request<Message[]>(
       `/rooms/${roomId}/messages?limit=${limit}${beforeId ? `&beforeId=${beforeId}` : ""}`,

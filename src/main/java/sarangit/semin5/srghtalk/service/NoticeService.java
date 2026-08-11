@@ -6,6 +6,8 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 import sarangit.semin5.srghtalk.api.ApiDtos.*;
 import sarangit.semin5.srghtalk.api.ApiException;
@@ -62,9 +64,11 @@ public class NoticeService {
         notices.save(notice);
         recipients.saveAll(targets.stream().map(target -> NoticeRecipient.builder()
                 .notice(notice).recipient(target).build()).toList());
-        NoticeDto dto = dto(notice, false);
-        targets.forEach(target -> realtime.publish("/topic/notices/" + target.getId(), dto));
-        return dto(notice, true);
+        NoticeDto receivedDto = dto(notice, false);
+        NoticeDto sentDto = dto(notice, true);
+        targets.forEach(target -> publishAfterCommit("/topic/notices/" + target.getId(), receivedDto));
+        publishAfterCommit("/topic/notices/" + sender.getId(), sentDto);
+        return sentDto;
     }
 
     @Transactional
@@ -135,6 +139,16 @@ public class NoticeService {
             storage.put(objectName, Files.newInputStream(legacy), Files.size(legacy), contentType);
         } catch (Exception error) {
             throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "기존 파일을 MinIO로 이전하지 못했습니다.");
+        }
+    }
+
+    private void publishAfterCommit(String destination, Object payload) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCommit() { realtime.publish(destination, payload); }
+            });
+        } else {
+            realtime.publish(destination, payload);
         }
     }
 

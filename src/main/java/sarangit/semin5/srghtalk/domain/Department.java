@@ -9,8 +9,18 @@ public class Department {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 80)
+    @Column(nullable = false, length = 80)
     private String name;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "parent_id")
+    private Department parent;
+
+    @Column(name = "hierarchy_level")
+    private Integer hierarchyLevel;
+
+    @Column(name = "full_path", unique = true, length = 400)
+    private String fullPath;
 
     @Column(length = 30)
     private String extensionNumber;

@@ -1386,6 +1386,7 @@ function NoticeComposeWindow({ me }: { me: Employee }) {
     setSending(true);
     try {
       await api.sendNotice(title, content, selectedIds, file);
+      localStorage.setItem("srgh_notices_changed", String(Date.now()));
       window.srghDesktop?.close();
     } finally {
       setSending(false);
@@ -1610,7 +1611,6 @@ function ProfileModal({
     setSaving(true);
     try {
       const updated = await api.updateMe({
-        name: form.name,
         extensionNumber: form.extensionNumber,
         statusMessage: form.statusMessage,
         availability: form.availability,
@@ -1643,6 +1643,7 @@ function ProfileModal({
           {!pageMode && <button type="button" onClick={onClose} aria-label="프로필 닫기"><X /></button>}
         </header>
         <div className="profile-content">
+          <div className="profile-identity-layout">
           <section className="profile-preview">
             <Avatar
               name={form.name || employee.name}
@@ -1651,29 +1652,54 @@ function ProfileModal({
               online
               availability={form.availability}
             />
-            <div>
-              <strong>{form.name || employee.name}</strong>
-              <span>
-                {employee.departmentName} · {employee.position || "직책 미설정"}
-              </span>
-              {form.statusMessage && <em>{form.statusMessage}</em>}
+            <div className="profile-hero-photo-actions">
+              <input
+                ref={photoRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                hidden
+                onChange={(e) => void selectPhoto(e.target.files?.[0])}
+              />
+              <button type="button" onClick={() => photoRef.current?.click()} title={form.avatarImage ? "사진 변경" : "사진 등록"} aria-label={form.avatarImage ? "사진 변경" : "사진 등록"}>
+                <Camera />
+              </button>
+              {form.avatarImage && (
+                <button type="button" className="remove-photo" onClick={() => setForm({ ...form, avatarImage: "" })} title="사진 삭제" aria-label="사진 삭제">
+                  <Trash2 />
+                </button>
+              )}
+            </div>
+            <div className="profile-rail-availability" aria-label="접속 상태">
+              {[
+                ["ONLINE", "온라인"],
+                ["BUSY", "다른 용무 중"],
+                ["OFFLINE", "오프라인"],
+              ].map(([value, label]) => (
+                <button
+                  type="button"
+                  key={value}
+                  className={`${form.availability === value ? "selected" : ""} availability-${value.toLowerCase()}`}
+                  onClick={() => setForm({ ...form, availability: value as "ONLINE" | "BUSY" | "OFFLINE" })}
+                >
+                  <i />
+                  <span>{label}</span>
+                </button>
+              ))}
             </div>
           </section>
-          <section className="profile-section">
+          <section className="profile-section profile-basic">
             <h3>기본 정보</h3>
             <div className="profile-grid">
               <label>
                 <span>이름</span>
                 <input
-                  required
-                  maxLength={50}
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  value={employee.name}
+                  disabled
                 />
               </label>
               <label>
-                <span>사번</span>
-                <input value={employee.employeeNumber} disabled />
+                <span>직책</span>
+                <input value={employee.position ?? "직책 미설정"} disabled />
               </label>
               <label>
                 <span>부서</span>
@@ -1683,8 +1709,8 @@ function ProfileModal({
                 />
               </label>
               <label>
-                <span>직책</span>
-                <input value={employee.position ?? "직책 미설정"} disabled />
+                <span>사번</span>
+                <input value={employee.employeeNumber} disabled />
               </label>
               <label>
                 <span>내선번호</span>
@@ -1710,75 +1736,8 @@ function ProfileModal({
               />
             </label>
           </section>
-          <section className="profile-section">
-            <h3>접속 상태</h3>
-            <div className="availability-options">
-              {[
-                ["ONLINE", "온라인", "업무 가능"],
-                ["BUSY", "다른 용무 중", "긴급 연락만"],
-                ["OFFLINE", "오프라인", "알림 최소화"],
-              ].map(([value, label, help]) => (
-                <button
-                  type="button"
-                  key={value}
-                  className={
-                    form.availability === value
-                      ? `selected availability-${value.toLowerCase()}`
-                      : ""
-                  }
-                  onClick={() =>
-                    setForm({
-                      ...form,
-                      availability: value as
-                        "ONLINE" | "BUSY" | "AWAY" | "OFFLINE",
-                    })
-                  }
-                >
-                  <i />
-                  <span>
-                    <b>{label}</b>
-                    <small>{help}</small>
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
-          <section className="profile-section profile-appearance">
-            <h3>프로필 이미지</h3>
-            <div className="profile-photo-setting">
-              <Avatar
-                name={form.name || employee.name}
-                color={employee.avatarColor}
-                image={form.avatarImage}
-              />
-              <div>
-                <b>프로필 사진</b>
-                <small>사진이 없으면 기본 프로필 그림으로 표시됩니다.</small>
-              </div>
-              <div className="profile-photo-actions">
-                <input
-                  ref={photoRef}
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  hidden
-                  onChange={(e) => void selectPhoto(e.target.files?.[0])}
-                />
-                <button type="button" onClick={() => photoRef.current?.click()}>
-                  {form.avatarImage ? "사진 변경" : "사진 등록"}
-                </button>
-                {form.avatarImage && (
-                  <button
-                    type="button"
-                    className="remove-photo"
-                    onClick={() => setForm({ ...form, avatarImage: "" })}
-                  >
-                    삭제
-                  </button>
-                )}
-              </div>
-            </div>
-          </section>
-          <section className="profile-section">
+          </div>
+          <section className="profile-section profile-password">
             <h3>
               비밀번호 변경 <small>변경할 때만 입력하세요.</small>
             </h3>
@@ -2458,7 +2417,14 @@ function OrganizationWindow({ me }: { me: Employee }) {
       api.departments().then((items) => {
         setDepartments(items);
         if (!organizationInitializedRef.current) {
-          setCollapsed(new Set(items.filter((department) => department.id !== me.departmentId).map((department) => department.id)));
+          const byId = new Map(items.map((department) => [department.id, department]));
+          const openIds = new Set<number>();
+          let current = me.departmentId ? byId.get(me.departmentId) : undefined;
+          while (current) {
+            openIds.add(current.id);
+            current = current.parentId ? byId.get(current.parentId) : undefined;
+          }
+          setCollapsed(new Set(items.filter((department) => !openIds.has(department.id)).map((department) => department.id)));
           organizationInitializedRef.current = true;
         }
       }),
@@ -2604,6 +2570,43 @@ function OrganizationWindow({ me }: { me: Employee }) {
       (employee.position ?? "").includes(query) ||
       (employee.statusMessage ?? "").includes(query),
   );
+  const departmentsByParent = new Map<number | null, Department[]>();
+  departments.forEach((department) => {
+    const parentId = department.parentId ?? null;
+    const siblings = departmentsByParent.get(parentId) ?? [];
+    siblings.push(department);
+    departmentsByParent.set(parentId, siblings);
+  });
+  departmentsByParent.forEach((items) => items.sort((a, b) => a.name.localeCompare(b.name, "ko")));
+  const orderedDepartments: Department[] = [];
+  const appendDepartments = (parentId: number | null) => {
+    (departmentsByParent.get(parentId) ?? []).forEach((department) => {
+      orderedDepartments.push(department);
+      appendDepartments(department.id);
+    });
+  };
+  appendDepartments(null);
+  const visibleDepartmentIds = new Set<number>();
+  if (query) {
+    const byId = new Map(departments.map((department) => [department.id, department]));
+    filteredEmployees.forEach((employee) => {
+      let department = employee.departmentId ? byId.get(employee.departmentId) : undefined;
+      while (department) {
+        visibleDepartmentIds.add(department.id);
+        department = department.parentId ? byId.get(department.parentId) : undefined;
+      }
+    });
+  }
+  const hiddenByCollapsedAncestor = (department: Department) => {
+    if (query) return false;
+    const byId = new Map(departments.map((item) => [item.id, item]));
+    let parent = department.parentId ? byId.get(department.parentId) : undefined;
+    while (parent) {
+      if (collapsed.has(parent.id)) return true;
+      parent = parent.parentId ? byId.get(parent.parentId) : undefined;
+    }
+    return false;
+  };
   if (employeeCreateOpen && me.role === "ADMIN") {
     return (
       <main className="organization-page organization-admin-page">
@@ -2626,7 +2629,7 @@ function OrganizationWindow({ me }: { me: Employee }) {
             <label>사번<input required value={createForm.employeeNumber} onChange={(event) => setCreateForm({ ...createForm, employeeNumber: event.target.value })} /></label>
             <label>이름<input required value={createForm.name} onChange={(event) => setCreateForm({ ...createForm, name: event.target.value })} /></label>
             <label>직책<input value={createForm.position} onChange={(event) => setCreateForm({ ...createForm, position: event.target.value })} /></label>
-            <label>부서<select value={createForm.departmentId} onChange={(event) => setCreateForm({ ...createForm, departmentId: event.target.value })}><option value="">미지정</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}</select></label>
+            <label>부서<select value={createForm.departmentId} onChange={(event) => setCreateForm({ ...createForm, departmentId: event.target.value })}><option value="">미지정</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.fullPath ?? department.name}</option>)}</select></label>
             <label>초기 비밀번호<input required type="password" value={createForm.password} onChange={(event) => setCreateForm({ ...createForm, password: event.target.value })} /></label>
             <label>권한<select value={createForm.role} onChange={(event) => setCreateForm({ ...createForm, role: event.target.value })}><option value="USER">일반 권한</option><option value="NOTICE_WRITER">쪽지 관리 권한</option><option value="ADMIN">관리자</option></select></label>
             {adminError && <p className="admin-error">{adminError}</p>}
@@ -2662,7 +2665,7 @@ function OrganizationWindow({ me }: { me: Employee }) {
             <div className="organization-employee-form">
               <label>이름<input required value={editForm.name} onChange={(event) => setEditForm({ ...editForm, name: event.target.value })} /></label>
               <label>직책<input value={editForm.position} onChange={(event) => setEditForm({ ...editForm, position: event.target.value })} /></label>
-              <label>부서<select value={editForm.departmentId} onChange={(event) => setEditForm({ ...editForm, departmentId: event.target.value })}><option value="">미지정</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}</select></label>
+              <label>부서<select value={editForm.departmentId} onChange={(event) => setEditForm({ ...editForm, departmentId: event.target.value })}><option value="">미지정</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.fullPath ?? department.name}</option>)}</select></label>
               <label>내선번호<input value={editForm.extensionNumber} onChange={(event) => setEditForm({ ...editForm, extensionNumber: event.target.value })} /></label>
               <label>새 비밀번호<input type="password" placeholder="변경할 때만 입력" value={editForm.password} onChange={(event) => setEditForm({ ...editForm, password: event.target.value })} /></label>
               <label>권한<select value={editForm.role} onChange={(event) => setEditForm({ ...editForm, role: event.target.value })}><option value="USER">일반 권한</option><option value="NOTICE_WRITER">쪽지 관리 권한</option><option value="ADMIN">관리자</option></select></label>
@@ -2694,14 +2697,14 @@ function OrganizationWindow({ me }: { me: Employee }) {
         />
       </div>
       <div className="organization-tree">
-        {departments.map((department) => {
+        {orderedDepartments.map((department) => {
           const members = filteredEmployees.filter(
             (employee) => employee.departmentId === department.id,
           );
-          if (query && members.length === 0) return null;
+          if ((query && !visibleDepartmentIds.has(department.id)) || hiddenByCollapsedAncestor(department)) return null;
           const isCollapsed = collapsed.has(department.id) && !query;
           return (
-            <section className="organization-department" key={department.id}>
+            <section className="organization-department" key={department.id} style={{ "--department-depth": Math.max(0, (department.hierarchyLevel ?? 1) - 1) } as React.CSSProperties}>
               <button
                 className="department-node"
                 onClick={() =>
@@ -2717,7 +2720,6 @@ function OrganizationWindow({ me }: { me: Employee }) {
                 <ChevronDown className={isCollapsed ? "collapsed" : ""} />
                 <Building2 />
                 <strong>{department.name}</strong>
-                <span>{members.length}명</span>
               </button>
               {!isCollapsed && (
                 <div className="organization-members">
@@ -3118,12 +3120,14 @@ function Messenger({
   }, [mutedRoomIds]);
 
   const refreshRooms = useCallback(async () => {
-    const data = await api.rooms();
+    const data = standaloneChat && initialRoomId
+      ? [await api.room(initialRoomId)]
+      : await api.rooms();
     setRooms(data);
     setPinnedRoomIds(data.filter((room) => room.pinned).map((room) => room.id));
     setMutedRoomIds(data.filter((room) => room.muted).map((room) => room.id));
     setActiveId((id) => id ?? data[0]?.id);
-  }, []);
+  }, [initialRoomId, standaloneChat]);
   useEffect(() => {
     const synchronizeClearedHistory = (event: StorageEvent) => {
       if (event.key !== "srgh_room_history_cleared" || !event.newValue) return;
@@ -3137,11 +3141,30 @@ function Messenger({
     return () => window.removeEventListener("storage", synchronizeClearedHistory);
   }, [refreshRooms]);
   useEffect(() => {
-    const requests: Promise<unknown>[] = [
-      refreshRooms(),
-      api.employees().then(setEmployees),
-      api.notices().then(setNotices),
-    ];
+    if (standaloneChat) return;
+    const refreshNotices = () => void api.notices().then(setNotices);
+    const synchronizeNotices = (event: StorageEvent) => {
+      if (event.key === "srgh_notices_changed") refreshNotices();
+    };
+    window.addEventListener("storage", synchronizeNotices);
+    window.addEventListener("focus", refreshNotices);
+    return () => {
+      window.removeEventListener("storage", synchronizeNotices);
+      window.removeEventListener("focus", refreshNotices);
+    };
+  }, [standaloneChat]);
+  useEffect(() => {
+    const requests: Promise<unknown>[] = [refreshRooms()];
+    if (!standaloneChat) {
+      requests.push(api.employees().then(setEmployees), api.notices().then(setNotices));
+    } else {
+      window.setTimeout(() => {
+        void Promise.all([
+          api.employees().then(setEmployees),
+          api.notices().then(setNotices),
+        ]);
+      }, 600);
+    }
     if (!standaloneChat)
       requests.push(
         api
@@ -3243,7 +3266,12 @@ function Messenger({
               : [notice, ...current],
           );
           const currentPreferences = preferencesRef.current;
-          if (!standaloneChat && currentPreferences.notifications && availabilityRef.current !== "BUSY") {
+          if (
+            notice.senderId !== me.id &&
+            !standaloneChat &&
+            currentPreferences.notifications &&
+            availabilityRef.current !== "BUSY"
+          ) {
             window.srghDesktop?.notify(
               notice.title || "새 쪽지",
               notice.content ||

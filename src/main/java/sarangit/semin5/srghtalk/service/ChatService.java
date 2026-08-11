@@ -27,7 +27,18 @@ public class ChatService {
 
     @Transactional(readOnly = true)
     public List<RoomDto> roomsFor(Employee employee) {
-        return rooms.findAllForEmployee(employee.getId()).stream().map(room -> {
+        return rooms.findAllForEmployee(employee.getId()).stream().map(room -> roomDto(employee, room)).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public RoomDto roomFor(Employee employee, Long roomId) {
+        membership(roomId, employee.getId());
+        ChatRoom room = rooms.findById(roomId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "대화방을 찾을 수 없습니다."));
+        return roomDto(employee, room);
+    }
+
+    private RoomDto roomDto(Employee employee, ChatRoom room) {
             RoomMember self = membership(room.getId(), employee.getId());
             MessageDto last = messages.findTopByRoomIdOrderByIdDesc(room.getId()).map(mapper::message).orElse(null);
             long unread = last == null ? 0 : messages.countByRoomIdAndIdGreaterThan(
@@ -45,7 +56,6 @@ public class ChatService {
                     ? generatedName : self.getCustomName();
             return new RoomDto(room.getId(), displayName, room.getType().name(), roomMembers.size(),
                     unread, last, roomMembers, self.isPinned(), self.isMuted());
-        }).toList();
     }
 
     @Transactional
@@ -55,18 +65,12 @@ public class ChatService {
         List<Employee> selected = employees.findAllById(ids);
         if (selected.size() != ids.size()) throw new ApiException(HttpStatus.BAD_REQUEST, "존재하지 않는 직원이 포함되어 있습니다.");
         if (ids.size() <= 2) {
-            Optional<ChatRoom> existingRoom = rooms.findAllForEmployee(creator.getId()).stream()
-                    .filter(candidate -> members.findAllByRoomId(candidate.getId()).stream()
-                            .map(member -> member.getEmployee().getId())
-                            .collect(java.util.stream.Collectors.toSet())
-                            .equals(ids))
-                    .findFirst();
+            Optional<ChatRoom> existingRoom = rooms
+                    .findDirectByExactMembers(ids.stream().toList(), ids.size())
+                    .stream().findFirst();
             if (existingRoom.isPresent()) {
                 Long existingRoomId = existingRoom.get().getId();
-                return roomsFor(creator).stream()
-                        .filter(room -> room.id().equals(existingRoomId))
-                        .findFirst()
-                        .orElseThrow();
+                return roomFor(creator, existingRoomId);
             }
         }
         String roomName = name == null || name.isBlank()
@@ -84,7 +88,7 @@ public class ChatService {
         Map<String, Object> roomCreated = Map.of("type", "ROOM_CREATED", "roomId", room.getId());
         publishAfterCommit("/topic/rooms", roomCreated);
         selected.forEach(target -> publishAfterCommit("/topic/employees/" + target.getId() + "/rooms", roomCreated));
-        return roomsFor(creator).stream().filter(r -> r.id().equals(room.getId())).findFirst().orElseThrow();
+        return roomDto(creator, room);
     }
 
     @Transactional(readOnly = true)
@@ -114,7 +118,7 @@ public class ChatService {
         members.saveAll(additions.stream().map(item -> RoomMember.builder().room(room).employee(item).joinedAt(now).build()).toList());
         additions.forEach(item -> publishAfterCommit("/topic/employees/" + item.getId() + "/rooms", Map.of("type", "ROOM_CREATED", "roomId", roomId)));
         publishAfterCommit("/topic/rooms", Map.of("type", "ROOM_MEMBERS_CHANGED", "roomId", roomId));
-        return roomsFor(actor).stream().filter(item -> item.id().equals(roomId)).findFirst().orElseThrow();
+        return roomDto(actor, room);
     }
 
     @Transactional
@@ -232,7 +236,9 @@ public class ChatService {
         members.save(member);
         publishAfterCommit("/topic/employees/" + employee.getId() + "/rooms",
                 Map.of("type", "ROOM_PREFERENCES_CHANGED", "roomId", roomId));
-        return roomsFor(employee).stream().filter(room -> room.id().equals(roomId)).findFirst().orElseThrow();
+        ChatRoom room = rooms.findById(roomId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "대화방을 찾을 수 없습니다."));
+        return roomDto(employee, room);
     }
 
     private void publishAfterCommit(String destination, Object payload) {

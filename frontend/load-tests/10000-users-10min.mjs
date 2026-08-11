@@ -1,7 +1,7 @@
 import { performance } from "node:perf_hooks";
 import os from "node:os";
 
-const baseUrl = process.env.SRGH_LOAD_BASE_URL || "http://192.168.205.119:3021";
+const baseUrl = process.env.SRGH_LOAD_BASE_URL || "http://192.168.1.76:3021";
 const users = Number(process.env.SRGH_LOAD_USERS || 10000);
 const durationMs = Number(process.env.SRGH_LOAD_DURATION_MS || 600000);
 const restPerSecond = Number(process.env.SRGH_LOAD_REST_RPS || 333);

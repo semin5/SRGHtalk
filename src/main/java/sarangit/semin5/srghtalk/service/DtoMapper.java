@@ -16,7 +16,8 @@ public class DtoMapper {
 
     public DepartmentDto department(Department d) {
         long count = employees.findAllByDepartmentIdAndStatusOrderByName(d.getId(), Employee.Status.ACTIVE).size();
-        return new DepartmentDto(d.getId(), d.getName(), d.getExtensionNumber(), count, d.isActive());
+        return new DepartmentDto(d.getId(), d.getName(), d.getExtensionNumber(), count, d.isActive(),
+                d.getParent() == null ? null : d.getParent().getId(), d.getHierarchyLevel(), d.getFullPath());
     }
 
     public EmployeeDto employee(Employee e) {
@@ -24,7 +25,8 @@ public class DtoMapper {
         return new EmployeeDto(e.getId(), e.getEmployeeNumber(), e.getName(), e.getPosition(), e.getPhone(),
                 e.getEmail(), e.getExtensionNumber(), d == null ? null : d.getId(), d == null ? null : d.getName(),
                 e.getRole().name(), e.getStatus().name(), presence.isOnline(e.getId()),
-                e.getStatusMessage(), e.getAvailability(), e.getAvatarColor(), e.getAvatarImage());
+                e.getStatusMessage(), e.getAvailability(), e.getAvatarColor(), e.getAvatarImage(),
+                d == null ? null : d.getFullPath());
     }
 
     public MessageDto message(ChatMessage m) {

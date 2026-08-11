@@ -7,11 +7,12 @@ import java.util.List;
 public final class ApiDtos {
     private ApiDtos() {}
 
-    public record DepartmentDto(Long id, String name, String extensionNumber, long memberCount, boolean active) {}
+    public record DepartmentDto(Long id, String name, String extensionNumber, long memberCount, boolean active,
+                                Long parentId, Integer hierarchyLevel, String fullPath) {}
     public record EmployeeDto(Long id, String employeeNumber, String name, String position, String phone,
                               String email, String extensionNumber, Long departmentId, String departmentName, String role,
                               String status, boolean online, String statusMessage, String availability,
-                              String avatarColor, String avatarImage) {}
+                              String avatarColor, String avatarImage, String departmentPath) {}
     public record MessageDto(Long id, Long roomId, Long senderId, String senderName, String type,
                              String content, LocalDateTime sentAt, long unreadCount, FileDto file) {}
     public record FileDto(Long id, String originalName, String contentType, long sizeBytes, String downloadUrl,

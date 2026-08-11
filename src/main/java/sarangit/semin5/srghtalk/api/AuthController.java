@@ -23,7 +23,7 @@ public class AuthController {
 
     public record LoginRequest(@NotBlank String employeeNumber, @NotBlank String password) {}
     public record ProfileRequest(
-            @NotBlank @Size(max = 50) String name,
+            @Size(max = 50) String name,
             @Size(max = 20) String extensionNumber,
             @Size(max = 120) String statusMessage,
             String availability,
@@ -47,7 +47,6 @@ public class AuthController {
     @Transactional
     public EmployeeDto updateMe(HttpServletRequest request, @Valid @RequestBody ProfileRequest body) {
         var employee = auth.authenticate(request);
-        employee.setName(body.name().trim());
         employee.setExtensionNumber(clean(body.extensionNumber()));
         employee.setStatusMessage(clean(body.statusMessage()));
         if (body.availability() != null && java.util.Set.of("ONLINE", "BUSY", "AWAY", "OFFLINE").contains(body.availability())) {

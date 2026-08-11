@@ -206,7 +206,7 @@ function serverConfig() {
   const server = (
     process.env.SRGHTALK_SERVER_URL ||
     configuredServer ||
-    "http://192.168.1.77:3021"
+    "http://192.168.1.76:3021"
   ).replace(/\/+$/, "");
   return {
     apiBase: `${server}/api`,
@@ -318,7 +318,9 @@ function createChatWindow(roomId) {
   chatWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"), {
     query: { ...serverConfig(), chatRoomId: String(roomId) },
   });
-  chatWindow.once("ready-to-show", () => chatWindow.show());
+  chatWindow.webContents.once("dom-ready", () => {
+    if (!chatWindow.isDestroyed()) chatWindow.show();
+  });
   chatWindow.on("closed", () => chatWindows.delete(roomId));
 }
 
