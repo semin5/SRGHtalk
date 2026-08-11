@@ -9,42 +9,60 @@ spring:
       max-file-size: 50MB
       max-request-size: 55MB
   datasource:
-    url: jdbc:mysql://localhost:3306/SRGHtalk?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
-    username: semin5
-    password: omh10ak.
+    url: ${DB_URL:jdbc:mysql://192.168.1.77:3308/srghtalk?serverTimezone=Asia/Seoul&characterEncoding=UTF-8}
+    username: ${DB_USERNAME:semin5}
+    password: ${DB_PASSWORD:omh10ak.}
     driver-class-name: com.mysql.cj.jdbc.Driver
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
+      host: ${REDIS_HOST:192.168.1.77}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
+      password: ${SRGHTALK_REDIS_PASSWORD:omh10ak.}
       timeout: 3s
       repositories:
         enabled: false
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: ${JPA_DDL_AUTO:update}
     open-in-view: false
     defer-datasource-initialization: true
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
-        format_sql: true
+        format_sql: false
 
 server:
   address: 0.0.0.0
-  port: 3021
+  port: ${SERVER_PORT:3022}
+  forward-headers-strategy: framework
   error:
     whitelabel:
       enabled: false
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      show-details: never
+  metrics:
+    tags:
+      application: srghtalk
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+
 app:
+  schema-migration:
+    enabled: ${SCHEMA_MIGRATION_ENABLED:false}
   redis:
     enabled: ${REDIS_ENABLED:true}
     event-channel: ${REDIS_EVENT_CHANNEL:srghtalk:realtime}
     presence-timeout-seconds: ${REDIS_PRESENCE_TIMEOUT_SECONDS:90}
   demo-data:
-    enabled: true
+    enabled: ${DEMO_DATA_ENABLED:false}
   cors:
     allowed-origin-patterns: "*"
   auth:
@@ -53,7 +71,7 @@ app:
     max-size-bytes: 52428800
     legacy-directory: ${LEGACY_UPLOAD_DIRECTORY:uploads}
     minio:
-      endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
-      access-key: ${MINIO_ACCESS_KEY:srghtalk}
-      secret-key: ${MINIO_SECRET_KEY:srghtalk-minio-change-me}
+      endpoint: ${MINIO_ENDPOINT:http://192.168.1.77:9000}
+      access-key: ${MINIO_ACCESS_KEY:semin5}
+      secret-key: ${MINIO_SECRET_KEY:omh10ak.}
       bucket: ${MINIO_BUCKET:srghtalk-files}

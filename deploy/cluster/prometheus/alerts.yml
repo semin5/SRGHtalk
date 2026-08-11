@@ -1,0 +1,38 @@
+groups:
+  - name: srghtalk
+    rules:
+      - alert: SRGHTalkNodeDown
+        expr: up{job="srghtalk"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "사랑톡 {{ $labels.node }} 서버 연결 끊김"
+          description: "{{ $labels.instance }} 메트릭 수집이 1분 이상 실패했습니다."
+
+      - alert: SRGHTalkHighCpu
+        expr: process_cpu_usage{job="srghtalk"} > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "사랑톡 {{ $labels.node }} CPU 사용률 높음"
+          description: "프로세스 CPU 사용률이 5분 이상 85%를 넘었습니다."
+
+      - alert: SRGHTalkHighHeap
+        expr: sum by(instance,node) (jvm_memory_used_bytes{job="srghtalk",area="heap"}) / sum by(instance,node) (jvm_memory_max_bytes{job="srghtalk",area="heap"}) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "사랑톡 {{ $labels.node }} JVM Heap 부족"
+          description: "Heap 사용률이 5분 이상 85%를 넘었습니다."
+
+      - alert: SRGHTalkDbPoolNearLimit
+        expr: hikaricp_connections_active{job="srghtalk"} / hikaricp_connections_max{job="srghtalk"} > 0.9
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "사랑톡 {{ $labels.node }} DB 연결 풀 부족"
+          description: "HikariCP 활성 연결이 최대값의 90%를 넘었습니다."

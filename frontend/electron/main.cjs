@@ -15,6 +15,7 @@ let idleAwaySent = false;
 let idleAwaySeconds = 300;
 let screenLocked = false;
 let organizationWindow;
+let fileLibraryWindow;
 const chatWindows = new Map();
 const noticeWindows = new Map();
 const imageViewerWindows = new Map();
@@ -38,10 +39,32 @@ function closeAuxiliaryWindows() {
   imageViewerWindows.clear();
   if (organizationWindow && !organizationWindow.isDestroyed()) organizationWindow.destroy();
   organizationWindow = undefined;
+  if (fileLibraryWindow && !fileLibraryWindow.isDestroyed()) fileLibraryWindow.destroy();
+  fileLibraryWindow = undefined;
   for (const notificationWindow of notificationWindows) {
     if (!notificationWindow.isDestroyed()) notificationWindow.destroy();
   }
   notificationWindows.length = 0;
+}
+
+function auxiliaryBounds(width, height) {
+  const anchor = mainWindow && !mainWindow.isDestroyed()
+    ? mainWindow.getBounds()
+    : screen.getPrimaryDisplay().workArea;
+  const display = screen.getDisplayMatching(anchor);
+  const openCount = chatWindows.size + noticeWindows.size + imageViewerWindows.size
+    + (organizationWindow && !organizationWindow.isDestroyed() ? 1 : 0)
+    + (fileLibraryWindow && !fileLibraryWindow.isDestroyed() ? 1 : 0);
+  const offset = openCount * 22;
+  const gap = 10;
+  let x = anchor.x + anchor.width + gap + offset;
+  let y = anchor.y + offset;
+  if (x + width > display.workArea.x + display.workArea.width) {
+    x = anchor.x - width - gap - offset;
+  }
+  x = Math.max(display.workArea.x, Math.min(x, display.workArea.x + display.workArea.width - width));
+  y = Math.max(display.workArea.y, Math.min(y, display.workArea.y + display.workArea.height - height));
+  return { x, y };
 }
 
 function credentialPath() {
@@ -183,7 +206,7 @@ function serverConfig() {
   const server = (
     process.env.SRGHTALK_SERVER_URL ||
     configuredServer ||
-    "http://192.168.205.119:3021"
+    "http://192.168.1.77:3021"
   ).replace(/\/+$/, "");
   return {
     apiBase: `${server}/api`,
@@ -202,6 +225,7 @@ function createWindow() {
     maximizable: false,
     center: true,
     frame: false,
+    hasShadow: true,
     titleBarStyle: "hidden",
     thickFrame: false,
     roundedCorners: false,
@@ -260,15 +284,7 @@ function createChatWindow(roomId) {
   const display = screen.getDisplayMatching(anchorBounds);
   const chatWidth = anchorBounds.width;
   const chatHeight = anchorBounds.height;
-  const gap = 10;
-  const cascadeOffset = chatWindows.size * 22;
-  let chatX = anchorBounds.x + anchorBounds.width + gap + cascadeOffset;
-  let chatY = anchorBounds.y + cascadeOffset;
-  if (chatX + chatWidth > display.workArea.x + display.workArea.width) {
-    chatX = anchorBounds.x - chatWidth - gap - cascadeOffset;
-  }
-  chatX = Math.max(display.workArea.x, Math.min(chatX, display.workArea.x + display.workArea.width - chatWidth));
-  chatY = Math.max(display.workArea.y, Math.min(chatY, display.workArea.y + display.workArea.height - chatHeight));
+  const { x: chatX, y: chatY } = auxiliaryBounds(chatWidth, chatHeight);
 
   const chatWindow = new BrowserWindow({
     title: "사랑톡 채팅",
@@ -282,6 +298,7 @@ function createChatWindow(roomId) {
     minHeight: 620,
     maximizable: false,
     frame: false,
+    hasShadow: true,
     titleBarStyle: "hidden",
     thickFrame: false,
     roundedCorners: false,
@@ -302,12 +319,6 @@ function createChatWindow(roomId) {
     query: { ...serverConfig(), chatRoomId: String(roomId) },
   });
   chatWindow.once("ready-to-show", () => chatWindow.show());
-  chatWindow.webContents.on("before-input-event", (event, input) => {
-    if (input.key === "Escape" && input.type === "keyDown") {
-      event.preventDefault();
-      chatWindow.close();
-    }
-  });
   chatWindow.on("closed", () => chatWindows.delete(roomId));
 }
 
@@ -319,11 +330,11 @@ function createImageViewerWindow(roomId, fileId) {
   const display = screen.getDisplayMatching(anchor);
   const width = Math.min(880, display.workArea.width);
   const height = Math.min(760, display.workArea.height);
+  const position = auxiliaryBounds(width, height);
   const viewer = new BrowserWindow({
     title: "사랑톡 사진 보기", icon: applicationIcon, width, height,
-    x: Math.round(display.workArea.x + (display.workArea.width - width) / 2),
-    y: Math.round(display.workArea.y + (display.workArea.height - height) / 2),
-    minWidth: 620, minHeight: 520, frame: false, titleBarStyle: "hidden", maximizable: false,
+    ...position,
+    minWidth: 620, minHeight: 520, frame: false, hasShadow: true, titleBarStyle: "hidden", maximizable: false,
     backgroundColor: "#111719", show: false, autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, nodeIntegration: false, sandbox: true, devTools: !app.isPackaged },
   });
@@ -383,9 +394,7 @@ function createOrganizationWindow() {
   const display = screen.getDisplayMatching(anchor);
   const width = anchor.width;
   const height = anchor.height;
-  let x = anchor.x + anchor.width + 10;
-  if (x + width > display.workArea.x + display.workArea.width) x = Math.max(display.workArea.x, anchor.x - width - 10);
-  const y = Math.max(display.workArea.y, Math.min(anchor.y, display.workArea.y + display.workArea.height - height));
+  const { x, y } = auxiliaryBounds(width, height);
   organizationWindow = new BrowserWindow({
     title: "사랑톡 조직도",
     icon: applicationIcon,
@@ -395,6 +404,7 @@ function createOrganizationWindow() {
     minHeight: 620,
     maximizable: false,
     frame: false,
+    hasShadow: true,
     titleBarStyle: "hidden",
     thickFrame: false,
     roundedCorners: false,
@@ -413,12 +423,6 @@ function createOrganizationWindow() {
     query: { ...serverConfig(), organization: "1" },
   });
   organizationWindow.once("ready-to-show", () => organizationWindow.show());
-  organizationWindow.webContents.on("before-input-event", (event, input) => {
-    if (input.key === "Escape" && input.type === "keyDown") {
-      event.preventDefault();
-      organizationWindow.close();
-    }
-  });
   organizationWindow.on("closed", () => { organizationWindow = undefined; });
 }
 
@@ -434,12 +438,10 @@ function createNoticeWindow(key, query, title) {
   const display = screen.getDisplayMatching(anchor);
   const width = anchor.width;
   const height = anchor.height;
-  let x = anchor.x + anchor.width + 10;
-  if (x + width > display.workArea.x + display.workArea.width) x = Math.max(display.workArea.x, anchor.x - width - 10);
-  const y = Math.max(display.workArea.y, Math.min(anchor.y, display.workArea.y + display.workArea.height - height));
+  const { x, y } = auxiliaryBounds(width, height);
   const noticeWindow = new BrowserWindow({
     title, icon: applicationIcon, skipTaskbar: false, x, y, width, height, minWidth: 380, minHeight: 620,
-    maximizable: false, frame: false, titleBarStyle: "hidden", thickFrame: false,
+    maximizable: false, frame: false, hasShadow: true, titleBarStyle: "hidden", thickFrame: false,
     roundedCorners: false, show: false, backgroundColor: "#f5f8fa", autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"), contextIsolation: true,
@@ -456,6 +458,40 @@ function createNoticeWindow(key, query, title) {
     }
   });
   noticeWindow.on("closed", () => noticeWindows.delete(key));
+}
+
+function createFileLibraryWindow() {
+  if (fileLibraryWindow && !fileLibraryWindow.isDestroyed()) {
+    if (fileLibraryWindow.isMinimized()) fileLibraryWindow.restore();
+    fileLibraryWindow.show();
+    fileLibraryWindow.focus();
+    return;
+  }
+  const display = screen.getDisplayMatching(mainWindow?.getBounds() || screen.getPrimaryDisplay().workArea);
+  const width = Math.min(1040, display.workArea.width);
+  const height = Math.min(760, display.workArea.height);
+  const { x, y } = auxiliaryBounds(width, height);
+  fileLibraryWindow = new BrowserWindow({
+    title: "사랑톡 파일함", icon: applicationIcon, skipTaskbar: false,
+    x, y, width, height, minWidth: 760, minHeight: 600,
+    maximizable: false, frame: false, hasShadow: true, titleBarStyle: "hidden", thickFrame: false,
+    roundedCorners: false, show: false, backgroundColor: "#f5f8fa", autoHideMenuBar: true,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.cjs"), contextIsolation: true,
+      nodeIntegration: false, sandbox: true, devTools: !app.isPackaged,
+    },
+  });
+  fileLibraryWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"), {
+    query: { ...serverConfig(), fileLibrary: "1" },
+  });
+  fileLibraryWindow.once("ready-to-show", () => fileLibraryWindow.show());
+  fileLibraryWindow.webContents.on("before-input-event", (event, input) => {
+    if (input.key === "Escape" && input.type === "keyDown") {
+      event.preventDefault();
+      fileLibraryWindow.close();
+    }
+  });
+  fileLibraryWindow.on("closed", () => { fileLibraryWindow = undefined; });
 }
 
 app.whenReady().then(() => {
@@ -502,6 +538,7 @@ ipcMain.on("chat:open-window", (_event, roomId) => {
 });
 
 ipcMain.on("organization:open-window", () => createOrganizationWindow());
+ipcMain.on("files:open-window", () => createFileLibraryWindow());
 ipcMain.on("notice:open-window", (_event, noticeId) => {
   const id = Number(noticeId);
   if (Number.isInteger(id) && id > 0) createNoticeWindow(`detail-${id}`, { noticeId: String(id) }, "사랑톡 쪽지");

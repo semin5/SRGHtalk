@@ -3600,6 +3600,10 @@ html[data-theme="dark"] .message-row.system-message .bubble { color: #9cabb1; ba
 
 .file-library-home { grid-column: 2 / -1; min-width: 0; min-height: 0; display: grid; grid-template-rows: 92px 46px 52px minmax(0,1fr); background: #f6f9fa; }
 .app-shell.file-view-open > .room-panel, .app-shell.file-view-open > .chat-panel, .app-shell.file-view-open > .info-panel { display: none; }
+.app-shell > .rail { grid-column: 1; grid-row: 1; }
+.app-shell.settings-view-open > .room-panel, .app-shell.settings-view-open > .chat-panel, .app-shell.settings-view-open > .info-panel, .app-shell.settings-view-open > .notice-home, .app-shell.settings-view-open > .file-library-home,
+.app-shell.profile-view-open > .room-panel, .app-shell.profile-view-open > .chat-panel, .app-shell.profile-view-open > .info-panel, .app-shell.profile-view-open > .notice-home, .app-shell.profile-view-open > .file-library-home { display: none; }
+.app-shell.settings-view-open > .embedded-page, .app-shell.profile-view-open > .embedded-page { grid-column: 2 / -1; grid-row: 1; min-width: 0; min-height: 0; }
 .file-library-home > header { display: flex; align-items: center; justify-content: space-between; padding: 18px 25px; border-bottom: 1px solid #dfe8eb; background: #fff; }
 .file-library-home h1 { margin: 2px 0 0; font-size: calc(21px * var(--user-font-scale, 1)); }
 .file-library-home > header > svg { width: 24px; color: #173b95; }
@@ -3629,6 +3633,23 @@ html[data-theme="dark"] .input-wrap .send-button:disabled { color: #6f7d82; back
 html[data-theme="dark"] .conversation-capture-guide { color: #b9dce2; background: #193940; border-color: #31515a; }
 html[data-theme="dark"] .file-library-home > header, html[data-theme="dark"] .library-room-tabs, html[data-theme="dark"] .library-kind-tabs, html[data-theme="dark"] .library-card { color: #e4ecee; background: #202d32; border-color: #34434a; }
 html[data-theme="dark"] .library-preview { background: #26363c; }
+
+.file-library-window { height: calc(100vh - 32px); min-height: 0; background: #f6f9fa; }
+.file-library-window .file-library-home { width: 100%; height: 100%; grid-column: auto; }
+.large-file-library { grid-template-columns: 250px minmax(0, 1fr); grid-template-rows: 92px 52px minmax(0, 1fr); }
+.large-file-library .library-profile-column { grid-column: 1; grid-row: 1; min-width: 0; padding: 16px; border-right: 1px solid #dfe8eb; border-bottom: 1px solid #dfe8eb; background: #fff; }
+.large-file-library .library-owner { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.large-file-library .library-owner > span { min-width: 0; display: grid; gap: 2px; }
+.large-file-library .library-owner strong, .large-file-library .library-owner small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.large-file-library .library-owner small { color: #839198; font-size: calc(9px * var(--user-font-scale, 1)); }
+.large-file-library .library-room-heading { display: block; margin-top: 13px; color: #65777e; font-size: calc(9px * var(--user-font-scale, 1)); }
+.large-file-library > header { grid-column: 2; grid-row: 1; }
+.large-file-library .library-room-tabs { grid-column: 1; grid-row: 2 / 4; min-height: 0; align-items: stretch; flex-direction: column; gap: 4px; padding: 12px; overflow-x: hidden; overflow-y: auto; border-right: 1px solid #dfe8eb; border-bottom: 0; }
+.large-file-library .library-room-tabs button { width: 100%; flex: 0 0 auto; padding: 10px 12px; text-align: left; }
+.large-file-library .library-kind-tabs { grid-column: 2; grid-row: 2; }
+.large-file-library .library-grid { grid-column: 2; grid-row: 3; grid-template-columns: repeat(auto-fill,minmax(180px,1fr)); }
+html[data-theme="dark"] .file-library-window { background: #172126; }
+html[data-theme="dark"] .large-file-library .library-profile-column { color: #e4ecee; background: #202d32; border-color: #34434a; }
 
 .linkified-message { display: block; }
 .linkified-message > a { color: inherit; font-weight: 650; text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 45%, transparent); text-underline-offset: 3px; }
@@ -3774,8 +3795,8 @@ html[data-theme="dark"] .desktop-shell.login-shell .desktop-titlebar { backgroun
 /* Seamless frameless window surfaces. */
 .desktop-shell .desktop-titlebar { border-bottom: 0; }
 .desktop-shell.main-window-shell .desktop-titlebar { background: #fff; }
-.desktop-shell.main-window-shell .desktop-titlebar::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 64px; background: #eef2f5; border-right: 1px solid #dce4e8; box-shadow: none; pointer-events: none; }
-@media (max-width: 700px) { .desktop-shell.main-window-shell .desktop-titlebar::before { width: 58px; } }
+.desktop-shell.main-window-shell .desktop-titlebar::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 63px; background: #eef2f5; border-right: 1px solid #dce4e8; box-shadow: none; pointer-events: none; }
+@media (max-width: 700px) { .desktop-shell.main-window-shell .desktop-titlebar::before { width: 57px; } }
 .embedded-settings-page .desktop-shell.main-window-shell .desktop-titlebar::before { display: none; }
 .embedded-settings-page .desktop-shell.main-window-shell .desktop-titlebar { background: #fff; }
 .desktop-shell.chat-window-shell .loading-screen,
@@ -3830,3 +3851,540 @@ html[data-theme="dark"] .desktop-shell.notice-window-shell .loading-screen p { c
 .library-card > span { margin-bottom: 0; font-size: calc(7.5px * var(--user-font-scale, 1)); }
 .library-card > em { margin-top: 0; margin-bottom: 0; font-size: calc(7px * var(--user-font-scale, 1)); }
 @media print { .desktop-titlebar, .image-viewer-window > header, .viewer-toolbar, .viewer-filmstrip, .viewer-forward { display: none !important; }.desktop-shell, .image-viewer-window, .viewer-stage { height: auto; padding: 0; background: #fff; }.viewer-stage img { max-width: 100%; max-height: 100vh; box-shadow: none; } }
+
+/* Settings and profile pages share the directory/chat page frame. */
+.modal-backdrop.embedded-page,
+.embedded-page .settings-modal,
+.embedded-page .profile-modal,
+.embedded-page .settings-content,
+.embedded-page .profile-content { background: #fbfcfc; }
+.embedded-page .settings-modal,
+.embedded-page .profile-modal { border: 0; }
+.embedded-page .settings-modal > header,
+.embedded-page .profile-modal > header {
+  min-height: 112px;
+  height: 112px;
+  align-items: flex-end;
+  padding: 25px 22px 15px;
+  color: #26363c;
+  background: #fbfcfc;
+  border: 0;
+}
+.embedded-page .settings-modal > header h2,
+.embedded-page .profile-modal > header h2 {
+  margin: 0;
+  font-size: calc(25px * var(--user-font-scale, 1));
+  letter-spacing: -.04em;
+}
+.embedded-page .settings-content,
+.embedded-page .profile-content { padding: 0 18px 24px; }
+.embedded-page .settings-section,
+.embedded-page .profile-section,
+.embedded-page .profile-preview {
+  border-color: #e5eae8;
+  border-radius: 11px;
+  box-shadow: none;
+}
+.embedded-page .profile-preview { color: #2d3d43; background: #fff; }
+.embedded-page .profile-preview span { color: #738188; }
+.embedded-page .profile-preview em { color: #55656b; }
+.embedded-page .profile-preview .avatar { border-color: #e2e9eb; box-shadow: none; }
+
+.organization-header .organization-create-back {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 36px;
+  margin-left: auto;
+  padding: 0;
+  color: #566a72;
+  background: #fff;
+  border: 1px solid #dce5e8;
+  border-radius: 11px;
+  cursor: pointer;
+}
+.organization-header .organization-create-back:hover { color: #173b95; background: #eef2fb; border-color: #aebce3; }
+.organization-header .organization-create-back svg { width: 18px; }
+
+.large-file-library .library-room-tabs .library-room-tab { display: flex; align-items: center; gap: 9px; }
+.large-file-library .library-room-tabs .library-room-tab .avatar {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 10px;
+}
+.large-file-library .library-room-tabs .library-room-tab > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-theme="dark"] .modal-backdrop.embedded-page,
+html[data-theme="dark"] .embedded-page .settings-modal,
+html[data-theme="dark"] .embedded-page .profile-modal,
+html[data-theme="dark"] .embedded-page .settings-modal > header,
+html[data-theme="dark"] .embedded-page .profile-modal > header,
+html[data-theme="dark"] .embedded-page .settings-content,
+html[data-theme="dark"] .embedded-page .profile-content { color: #e5edef; background: #202c31; }
+html[data-theme="dark"] .embedded-page .profile-preview { color: #e5edef; background: #202d32; border-color: #344249; }
+html[data-theme="dark"] .embedded-page .profile-preview span { color: #a4b1b6; }
+html[data-theme="dark"] .embedded-page .profile-preview em { color: #d1dce0; }
+html[data-theme="dark"] .organization-header .organization-create-back { color: #cbd6da; background: #293940; border-color: #3a4a50; }
+html[data-theme="dark"] .organization-header .organization-create-back:hover { color: #fff; background: #173b95; border-color: #173b95; }
+
+/* Shared primary icon-button treatment, based on the note compose button. */
+.header-actions .notice-style-action,
+.panel-title > .round-button,
+.notice-home > header .notice-compose-button,
+.organization-header .organization-create-back {
+  width: 36px;
+  height: 36px;
+  color: #173b95;
+  background: #edf9fb;
+  border: 1px solid #d7f0f4;
+  border-radius: 11px;
+  box-shadow: none;
+  transition: color .16s ease, background-color .16s ease, border-color .16s ease, transform .16s ease;
+}
+.header-actions .notice-style-action:hover,
+.header-actions .notice-style-action.active,
+.panel-title > .round-button:hover,
+.notice-home > header .notice-compose-button:hover,
+.organization-header .organization-create-back:hover {
+  color: #fff;
+  background: #173b95;
+  border-color: #173b95;
+  transform: translateY(-1px);
+}
+.header-actions .notice-style-action:active,
+.panel-title > .round-button:active,
+.notice-home > header .notice-compose-button:active,
+.organization-header .organization-create-back:active { transform: translateY(0); }
+html[data-theme="dark"] .header-actions .notice-style-action,
+html[data-theme="dark"] .panel-title > .round-button,
+html[data-theme="dark"] .notice-home > header .notice-compose-button,
+html[data-theme="dark"] .organization-header .organization-create-back {
+  color: #173b95;
+  background: #263a41;
+  border-color: #34505a;
+}
+html[data-theme="dark"] .header-actions .notice-style-action:hover,
+html[data-theme="dark"] .header-actions .notice-style-action.active,
+html[data-theme="dark"] .panel-title > .round-button:hover,
+html[data-theme="dark"] .notice-home > header .notice-compose-button:hover,
+html[data-theme="dark"] .organization-header .organization-create-back:hover {
+  color: #fff;
+  background: #173b95;
+  border-color: #173b95;
+}
+
+/* Match embedded page title baseline to the active directory/chat header. */
+.embedded-page .settings-modal > header,
+.embedded-page .profile-modal > header {
+  min-height: 103px;
+  height: 103px;
+  align-items: center;
+  padding: 20px 18px 12px 20px;
+}
+.embedded-page .settings-modal > header h2,
+.embedded-page .profile-modal > header h2 {
+  font-size: calc(21px * var(--user-font-scale, 1));
+  line-height: 1.2;
+}
+
+@media (max-width: 700px) {
+  .embedded-page .settings-modal > header,
+  .embedded-page .profile-modal > header {
+    min-height: 92px;
+    height: 92px;
+    padding: 16px 14px 9px 17px;
+  }
+  .embedded-page .settings-modal > header h2,
+  .embedded-page .profile-modal > header h2 { font-size: calc(20px * var(--user-font-scale, 1)); }
+}
+
+/* Dark note text contrast, including sent messages and recipient labels. */
+html[data-theme="dark"] .notice-home-list article strong { color: #edf4f6; }
+html[data-theme="dark"] .notice-home-list article p { color: #c2cfd3; }
+html[data-theme="dark"] .notice-home-list article span { color: #9eafb5; }
+html[data-theme="dark"] .notice-reference { color: #c8d5d9; background: #26383f; }
+html[data-theme="dark"] .notice-reference b { color: #aebcef; }
+
+/* Consistent edge definition for every frameless application window. */
+.desktop-shell::after {
+  content: "";
+  position: fixed;
+  z-index: 10000;
+  inset: 0;
+  pointer-events: none;
+  border: 1px solid #b8c4c9;
+  box-shadow:
+    inset 0 0 0 1px #ffffff8c,
+    inset 0 0 12px #203b4617;
+}
+html[data-theme="dark"] .desktop-shell::after {
+  border-color: #46565d;
+  box-shadow:
+    inset 0 0 0 1px #ffffff0d,
+    inset 0 0 14px #00000052;
+}
+
+/* Continue the surface below each titlebar without a visual seam. */
+.embedded-settings-page .desktop-shell.main-window-shell .desktop-titlebar::before {
+  display: block;
+}
+.desktop-shell.file-library-shell .desktop-titlebar {
+  background: #fff;
+}
+.desktop-shell.file-library-shell .desktop-titlebar::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 249px;
+  background: #fff;
+  border-right: 1px solid #dfe8eb;
+  pointer-events: none;
+}
+
+/* The dark login titlebar is part of the login surface below it. */
+html[data-theme="dark"] .desktop-shell.login-shell .desktop-titlebar {
+  background: #172126;
+}
+
+/* Keep both note-list labels at the same contrast as the unread counter. */
+html[data-theme="dark"] .notice-home-toolbar strong,
+html[data-theme="dark"] .notice-home-toolbar span {
+  color: #9eafb5;
+}
+
+/* Every shared action glyph follows the exact note-compose glyph color. */
+.header-actions .notice-style-action svg,
+.panel-title > .round-button svg,
+.notice-home > header .notice-compose-button svg,
+.organization-header .organization-create-back svg {
+  color: #647ba9 !important;
+  stroke: #647ba9 !important;
+  opacity: 1 !important;
+  filter: none !important;
+}
+.header-actions .notice-style-action svg *,
+.panel-title > .round-button svg *,
+.notice-home > header .notice-compose-button svg *,
+.organization-header .organization-create-back svg * {
+  stroke: #647ba9 !important;
+}
+.header-actions .notice-style-action:hover svg,
+.header-actions .notice-style-action.active svg,
+.panel-title > .round-button:hover svg,
+.notice-home > header .notice-compose-button:hover svg,
+.organization-header .organization-create-back:hover svg,
+.header-actions .notice-style-action:hover svg *,
+.header-actions .notice-style-action.active svg *,
+.panel-title > .round-button:hover svg *,
+.notice-home > header .notice-compose-button:hover svg *,
+.organization-header .organization-create-back:hover svg * {
+  color: #fff !important;
+  stroke: #fff !important;
+}
+
+/* Organization compose uses the same icon color as note compose. */
+.organization-header .organization-add-employee svg,
+.organization-header .organization-add-employee svg * {
+  color: #647ba9 !important;
+  stroke: #647ba9 !important;
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+/* Chat-window search/options are glyph-only controls. */
+.standalone-chat .header-actions .notice-style-action,
+.standalone-chat .header-actions .notice-style-action:hover,
+.standalone-chat .header-actions .notice-style-action.active,
+html[data-theme="dark"] .standalone-chat .header-actions .notice-style-action,
+html[data-theme="dark"] .standalone-chat .header-actions .notice-style-action:hover,
+html[data-theme="dark"] .standalone-chat .header-actions .notice-style-action.active {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+.standalone-chat .header-actions .notice-style-action:hover svg,
+.standalone-chat .header-actions .notice-style-action.active svg,
+.standalone-chat .header-actions .notice-style-action:hover svg *,
+.standalone-chat .header-actions .notice-style-action.active svg * {
+  color: #647ba9 !important;
+  stroke: #647ba9 !important;
+}
+
+/* All requested primary actions are icon-only: no tile, outline or hover fill. */
+.header-actions .notice-style-action,
+.panel-title > .round-button,
+.notice-home > header .notice-compose-button,
+.organization-header .organization-create-back,
+.organization-header .organization-add-employee,
+.header-actions .notice-style-action:hover,
+.header-actions .notice-style-action.active,
+.panel-title > .round-button:hover,
+.panel-title > .round-button:active,
+.notice-home > header .notice-compose-button:hover,
+.notice-home > header .notice-compose-button:active,
+.organization-header .organization-create-back:hover,
+.organization-header .organization-create-back:active,
+.organization-header .organization-add-employee:hover,
+.organization-header .organization-add-employee:active,
+html[data-theme="dark"] .header-actions .notice-style-action,
+html[data-theme="dark"] .panel-title > .round-button,
+html[data-theme="dark"] .notice-home > header .notice-compose-button,
+html[data-theme="dark"] .organization-header .organization-create-back,
+html[data-theme="dark"] .organization-header .organization-add-employee,
+html[data-theme="dark"] .header-actions .notice-style-action:hover,
+html[data-theme="dark"] .header-actions .notice-style-action.active,
+html[data-theme="dark"] .panel-title > .round-button:hover,
+html[data-theme="dark"] .notice-home > header .notice-compose-button:hover,
+html[data-theme="dark"] .organization-header .organization-create-back:hover,
+html[data-theme="dark"] .organization-header .organization-add-employee:hover {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+.header-actions .notice-style-action:hover svg,
+.header-actions .notice-style-action.active svg,
+.panel-title > .round-button:hover svg,
+.notice-home > header .notice-compose-button:hover svg,
+.organization-header .organization-create-back:hover svg,
+.organization-header .organization-add-employee:hover svg,
+.header-actions .notice-style-action:hover svg *,
+.header-actions .notice-style-action.active svg *,
+.panel-title > .round-button:hover svg *,
+.notice-home > header .notice-compose-button:hover svg *,
+.organization-header .organization-create-back:hover svg *,
+.organization-header .organization-add-employee:hover svg * {
+  color: #647ba9 !important;
+  stroke: #647ba9 !important;
+}
+html[data-theme="dark"] .desktop-shell.file-library-shell .desktop-titlebar,
+html[data-theme="dark"] .desktop-shell.file-library-shell .desktop-titlebar::before {
+  background: #202d32;
+}
+html[data-theme="dark"] .desktop-shell.file-library-shell .desktop-titlebar::before {
+  border-right-color: #34434a;
+}
+
+/* Settings/profile are regular pages, so switching them has no modal motion. */
+.modal-backdrop.embedded-page,
+.modal-backdrop.embedded-page > section,
+.embedded-page .settings-modal,
+.embedded-page .profile-modal {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Notice composer: readable recipient counts/selections and visible footer actions. */
+.notice-recipient-section h3 > button b,
+.department-select-head > button:first-child span,
+.department-select-list > div > button span {
+  color: #647ba9;
+  font-weight: 700;
+}
+.department-select-head > button:first-child.selected,
+.department-select-list > div > button.selected {
+  color: #173b95;
+}
+.notice-message-editor textarea {
+  min-height: 155px;
+}
+html[data-theme="dark"] .notice-recipient-section h3 > button b,
+html[data-theme="dark"] .department-select-head > button:first-child span,
+html[data-theme="dark"] .department-select-list > div > button span,
+html[data-theme="dark"] .department-select-head > button:first-child.selected,
+html[data-theme="dark"] .department-select-list > div > button.selected {
+  color: #aebcef;
+}
+html[data-theme="dark"] .department-select-head > button:first-child.selected,
+html[data-theme="dark"] .department-select-list > div > button.selected {
+  background: #203a43;
+}
+
+/* The signed-in user's directory row is a plain list row, not a card. */
+.directory-list .profile-person,
+html[data-theme="dark"] .directory-list .profile-person,
+.directory-list .profile-person:hover,
+html[data-theme="dark"] .directory-list .profile-person:hover {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+.directory-list .staff-chat-button,
+.directory-list .staff-chat-button:hover,
+html[data-theme="dark"] .directory-list .staff-chat-button,
+html[data-theme="dark"] .directory-list .staff-chat-button:hover {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Numeric setting steppers fit the outer frame and have no hover animation. */
+.settings-modal .font-size-control {
+  padding: 0 !important;
+  grid-template-columns: 34px 46px 30px 34px !important;
+  justify-content: stretch !important;
+  gap: 0 !important;
+}
+.settings-modal .font-size-control button,
+.settings-modal .font-size-control button:hover,
+.settings-modal .font-size-control button:active,
+html[data-theme="dark"] .settings-modal .font-size-control button,
+html[data-theme="dark"] .settings-modal .font-size-control button:hover,
+html[data-theme="dark"] .settings-modal .font-size-control button:active {
+  width: 34px !important;
+  min-width: 34px !important;
+  height: 34px !important;
+  color: #647ba9 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  transform: none !important;
+  transition: none !important;
+}
+.settings-modal .font-size-control button:first-child { border-radius: 10px 0 0 10px !important; }
+.settings-modal .font-size-control button:last-child { border-radius: 0 10px 10px 0 !important; }
+.settings-modal .font-size-input {
+  width: 46px !important;
+  min-width: 46px !important;
+}
+.settings-modal .font-size-control > b {
+  width: 30px;
+  text-align: center;
+}
+
+/* Main chat's new-conversation control is glyph-only, matching the directory control. */
+.room-panel .panel-title > .round-button,
+.room-panel .panel-title > .round-button:hover,
+.room-panel .panel-title > .round-button:focus,
+.room-panel .panel-title > .round-button:focus-visible,
+.room-panel .panel-title > .round-button:active,
+html[data-theme="dark"] .room-panel .panel-title > .round-button,
+html[data-theme="dark"] .room-panel .panel-title > .round-button:hover,
+html[data-theme="dark"] .room-panel .panel-title > .round-button:focus,
+html[data-theme="dark"] .room-panel .panel-title > .round-button:focus-visible,
+html[data-theme="dark"] .room-panel .panel-title > .round-button:active {
+  background: transparent !important;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+/* Chat list rows stay flat in every interaction state. */
+.room-panel .room-item,
+.room-panel .room-item:hover,
+.room-panel .room-item.selected,
+.room-panel .room-item:focus,
+.room-panel .room-item:focus-visible,
+html[data-theme="dark"] .room-panel .room-item,
+html[data-theme="dark"] .room-panel .room-item:hover,
+html[data-theme="dark"] .room-panel .room-item.selected,
+html[data-theme="dark"] .room-panel .room-item:focus,
+html[data-theme="dark"] .room-panel .room-item:focus-visible {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+}
+.room-panel .room-item.selected::before { display: none !important; }
+
+/* Notes use a flat heading and borderless content rows. */
+.notice-home-toolbar,
+html[data-theme="dark"] .notice-home-toolbar {
+  border-bottom: 0 !important;
+  box-shadow: none !important;
+}
+.notice-home-list article,
+.notice-home-list article:hover,
+.notice-home-list article.unread,
+html[data-theme="dark"] .notice-home-list article,
+html[data-theme="dark"] .notice-home-list article:hover,
+html[data-theme="dark"] .notice-home-list article.unread {
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Note rows have no card fill, including unread and hover states. */
+.notice-home-list article,
+.notice-home-list article:hover,
+.notice-home-list article.unread,
+html[data-theme="dark"] .notice-home-list article,
+html[data-theme="dark"] .notice-home-list article:hover,
+html[data-theme="dark"] .notice-home-list article.unread {
+  background: transparent !important;
+}
+
+/* Chat rows use the same subtle hover feedback as directory employees. */
+.room-panel .room-item:hover,
+.room-panel .room-item.selected:hover {
+  background: #f8fbfc !important;
+}
+html[data-theme="dark"] .room-panel .room-item:hover,
+html[data-theme="dark"] .room-panel .room-item.selected:hover {
+  background: #26363c !important;
+}
+
+/* Notes share the same subtle hover surface as directory employees. */
+.notice-home-list article:hover,
+.notice-home-list article.unread:hover {
+  background: #f8fbfc !important;
+}
+html[data-theme="dark"] .notice-home-list article:hover,
+html[data-theme="dark"] .notice-home-list article.unread:hover {
+  background: #26363c !important;
+}
+
+/* Scope menu keeps readable labels/checks; hover changes only the row surface. */
+.scope-menu button,
+.scope-menu button.selected,
+.scope-menu button:hover,
+.scope-menu button.selected:hover {
+  color: #43565d !important;
+}
+.scope-menu button span,
+.scope-menu button.selected span,
+.scope-menu button:hover span {
+  color: #647ba9 !important;
+}
+.scope-menu button:hover,
+.scope-menu button.selected:hover {
+  background: #f8fbfc !important;
+}
+html[data-theme="dark"] .scope-menu button,
+html[data-theme="dark"] .scope-menu button.selected,
+html[data-theme="dark"] .scope-menu button:hover,
+html[data-theme="dark"] .scope-menu button.selected:hover {
+  color: #dce6e9 !important;
+}
+html[data-theme="dark"] .scope-menu button span,
+html[data-theme="dark"] .scope-menu button.selected span,
+html[data-theme="dark"] .scope-menu button:hover span {
+  color: #aebcef !important;
+}
+html[data-theme="dark"] .scope-menu button:hover,
+html[data-theme="dark"] .scope-menu button.selected:hover {
+  background: #26363c !important;
+}
+
+/* Favorite hover has no yellow tile. */
+.favorite-button:hover,
+html[data-theme="dark"] .favorite-button:hover {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Department counts use the department label color. */
+.directory-list .section-label b,
+html[data-theme="dark"] .directory-list .section-label b {
+  color: inherit !important;
+}
+
+/* Sidebar active marker follows the unified icon color instead of cyan. */
+.rail button.active::before,
+html[data-theme="dark"] .rail button.active::before {
+  background: #647ba9 !important;
+}

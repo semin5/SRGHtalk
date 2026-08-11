@@ -101,7 +101,7 @@ public class ChatService {
                 : messages.findAllByRoomIdAndIdLessThanOrderByIdDesc(roomId, beforeId, page);
         Collections.reverse(result);
         long cleared = Optional.ofNullable(self.getClearedMessageId()).orElse(0L);
-        return result.stream().filter(message -> message.getId() > cleared && !message.isDeleted()).map(mapper::message).toList();
+        return result.stream().filter(message -> message.getId() > cleared).map(mapper::message).toList();
     }
 
     @Transactional
@@ -137,8 +137,9 @@ public class ChatService {
         membership(roomId, sender.getId());
         if (content == null || content.isBlank()) throw new ApiException(HttpStatus.BAD_REQUEST, "메시지를 입력해 주세요.");
         ChatRoom room = rooms.findById(roomId).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "대화방을 찾을 수 없습니다."));
+        String cleanedContent = content.trim();
         ChatMessage saved = messages.save(ChatMessage.builder().room(room).sender(sender).type(type)
-                .content(content.trim()).sentAt(LocalDateTime.now()).build());
+                .content(cleanedContent).originalContent(cleanedContent).sentAt(LocalDateTime.now()).build());
         room.setUpdatedAt(saved.getSentAt());
         markRead(sender, roomId, saved.getId());
         MessageDto dto = mapper.message(saved);
@@ -181,7 +182,8 @@ public class ChatService {
             throw new ApiException(HttpStatus.FORBIDDEN, "메시지를 삭제할 권한이 없습니다.");
         }
         message.setDeleted(true);
-        message.setContent(null);
+        if (message.getOriginalContent() == null) message.setOriginalContent(message.getContent());
+        message.setContent("삭제된 메시지입니다.");
         messages.saveAndFlush(message);
         realtime.publish("/topic/rooms/" + message.getRoom().getId(),
                 Map.of("type", "MESSAGE_DELETED", "messageId", messageId));
@@ -205,6 +207,7 @@ public class ChatService {
         members.saveAll(currentMembers);
         ChatMessage systemMessage = messages.save(ChatMessage.builder().room(room).sender(employee)
                 .type(ChatMessage.Type.SYSTEM).content(employee.getName() + "님이 대화방을 나갔습니다.")
+                .originalContent(employee.getName() + "님이 대화방을 나갔습니다.")
                 .sentAt(LocalDateTime.now()).build());
         room.setUpdatedAt(systemMessage.getSentAt());
         members.delete(member);

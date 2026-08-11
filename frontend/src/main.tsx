@@ -45,7 +45,6 @@ import {
   Send,
   Settings,
   ShieldCheck,
-  SlidersHorizontal,
   Smile,
   Star,
   Sun,
@@ -79,6 +78,13 @@ const time = (date?: string) =>
         minute: "2-digit",
       }).format(new Date(date))
     : "";
+const roomListTime = (date?: string) => {
+  if (!date) return "";
+  const value = new Date(date);
+  const today = new Date();
+  if (value.toDateString() === today.toDateString()) return time(date);
+  return `${String(value.getMonth() + 1).padStart(2, "0")}.${String(value.getDate()).padStart(2, "0")}`;
+};
 const dateKey = (date?: string) =>
   date ? new Date(date).toLocaleDateString("en-CA") : "";
 const messageDate = (date?: string) =>
@@ -250,6 +256,17 @@ function EmployeeDetailModal({
   onChat: () => void;
   onClose: () => void;
 }) {
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape, true);
+    return () => window.removeEventListener("keydown", closeOnEscape, true);
+  }, [onClose]);
   const availabilityLabel =
     !employee.online || employee.availability === "OFFLINE"
       ? "오프라인"
@@ -620,9 +637,7 @@ function SettingsModal({
           <div>
             <h2>사랑톡 설정</h2>
           </div>
-          <button className={pageMode ? "subwindow-back" : undefined} onClick={onClose} aria-label="설정 닫기">
-            {pageMode ? <ArrowLeft /> : <X />}
-          </button>
+          {!pageMode && <button onClick={onClose} aria-label="설정 닫기"><X /></button>}
         </header>
         <div className="settings-content">
           <section className="settings-section">
@@ -1181,49 +1196,87 @@ function LibraryThumb({ item }: { item: LibraryItem }) {
   return item.kind === "link" && item.url ? <span className="library-link-logo"><SiteLogo url={item.url} /></span> : <FileText />;
 }
 
-function FileLibraryHome({ rooms }: { rooms: Room[] }) {
+function FileLibraryHome({ rooms, me, largeWindow = false }: { rooms: Room[]; me?: Employee; largeWindow?: boolean }) {
   const [items, setItems] = useState<LibraryItem[]>([]);
   const [roomId, setRoomId] = useState<number | "all">("all");
   const [kind, setKind] = useState<LibraryItem["kind"] | "all">("all");
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     let cancelled = false;
+    setItems([]);
     setLoading(true);
+    const appendMessages = (room: Room, messages: Message[]) => {
+      if (cancelled) return;
+      const linkPattern = /https?:\/\/[^\s]+/g;
+      const additions: LibraryItem[] = [];
+      messages.forEach((message) => {
+        if (message.file) {
+          const type = message.file.contentType.toLowerCase();
+          additions.push({ room, message, kind: type.startsWith("image/") ? "image" : type.startsWith("video/") ? "video" : "file" });
+        }
+        for (const url of message.content?.match(linkPattern) ?? []) additions.push({ room, message, kind: "link", url });
+      });
+      if (!additions.length) return;
+      setItems((current) => {
+        const merged = new Map(current.map((item) => [`${item.room.id}-${item.message.id}-${item.kind}-${item.url ?? ""}`, item]));
+        additions.forEach((item) => merged.set(`${item.room.id}-${item.message.id}-${item.kind}-${item.url ?? ""}`, item));
+        return [...merged.values()].sort((a, b) => +new Date(b.message.sentAt) - +new Date(a.message.sentAt));
+      });
+    };
     const loadRoomHistory = async (room: Room) => {
       let beforeId: number | undefined;
-      const history: Message[] = [];
       for (;;) {
         const page = await api.messages(room.id, beforeId, 100);
-        history.push(...page);
+        appendMessages(room, page);
+        if (!cancelled) setLoading(false);
         if (page.length < 100) break;
         beforeId = Math.min(...page.map((message) => message.id));
       }
-      return { room, messages: history };
     };
-    void Promise.all(rooms.map(loadRoomHistory))
-      .then((groups) => {
-        if (cancelled) return;
-        const next: LibraryItem[] = [];
-        const linkPattern = /https?:\/\/[^\s]+/g;
-        groups.forEach(({ room, messages }) => messages.forEach((message) => {
-          if (message.file) {
-            const type = message.file.contentType.toLowerCase();
-            next.push({ room, message, kind: type.startsWith("image/") ? "image" : type.startsWith("video/") ? "video" : "file" });
-          }
-          for (const url of message.content?.match(linkPattern) ?? []) next.push({ room, message, kind: "link", url });
-        }));
-        setItems(next.sort((a, b) => +new Date(b.message.sentAt) - +new Date(a.message.sentAt)));
-      })
+    void Promise.allSettled(rooms.map(loadRoomHistory))
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
   }, [rooms]);
   const filtered = items.filter((item) => (roomId === "all" || item.room.id === roomId) && (kind === "all" || item.kind === kind));
-  return <section className="file-library-home">
+  const roomTab = (room: Room) => {
+    const partner = room.type === "DIRECT" && me
+      ? room.members.find((member) => member.id !== me.id) ?? room.members[0]
+      : undefined;
+    return (
+      <button
+        key={room.id}
+        className={`${roomId === room.id ? "active" : ""} ${largeWindow ? "library-room-tab" : ""}`}
+        onClick={() => setRoomId(room.id)}
+      >
+        {largeWindow && (
+          <Avatar
+            name={partner?.name ?? room.name}
+            image={partner?.avatarImage}
+            color={partner?.avatarColor}
+            online={partner?.online}
+            availability={partner?.availability}
+          />
+        )}
+        <span>{room.name}</span>
+      </button>
+    );
+  };
+  return <section className={`file-library-home ${largeWindow ? "large-file-library" : ""}`}>
+    {largeWindow && <aside className="library-profile-column">
+      {me && <div className="library-owner"><Avatar name={me.name} image={me.avatarImage} availability={me.availability} /><span><strong>{me.name} {me.position}</strong><small>{me.departmentName}</small></span></div>}
+      <strong className="library-room-heading">대화방</strong>
+    </aside>}
     <header><div><span className="eyebrow">사랑의병원</span><h1>파일</h1></div><FolderOpen /></header>
-    <div className="library-room-tabs scrollable"><button className={roomId === "all" ? "active" : ""} onClick={() => setRoomId("all")}>전체 대화</button>{rooms.map((room) => <button key={room.id} className={roomId === room.id ? "active" : ""} onClick={() => setRoomId(room.id)}>{room.name}</button>)}</div>
+    <div className="library-room-tabs scrollable"><button className={roomId === "all" ? "active" : ""} onClick={() => setRoomId("all")}><span>전체 대화</span></button>{rooms.map(roomTab)}</div>
     <div className="library-kind-tabs">{([ ["all","전체"], ["image","사진"], ["video","동영상"], ["file","파일"], ["link","링크"] ] as const).map(([value,label]) => <button key={value} className={kind === value ? "active" : ""} onClick={() => setKind(value)}>{label}</button>)}</div>
     <div className="library-grid scrollable">{loading ? <p className="library-empty">파일을 불러오는 중입니다.</p> : filtered.length ? filtered.map((item, index) => <button key={`${item.message.id}-${item.kind}-${index}`} className={`library-card ${item.kind === "link" ? "link-card" : ""}`} onClick={() => item.url ? openExternalUrl(item.url) : item.kind === "image" && item.message.file ? window.srghDesktop?.openImageViewer(item.room.id, item.message.file.id) : item.message.file && void fetchAttachment(item.message.file.downloadUrl).then((blob) => { const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=item.message.file!.originalName; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000); })}><div className="library-preview"><LibraryThumb item={item} /></div><strong>{item.url ? new URL(item.url).hostname.replace(/^www\./, "") : item.message.file?.originalName}</strong><span>{item.url ?? `${item.room.name} · ${time(item.message.sentAt)}`}</span>{item.kind === "link" && <em>{item.room.name} · {time(item.message.sentAt)}</em>}</button>) : <p className="library-empty">표시할 항목이 없습니다.</p>}</div>
   </section>;
+}
+
+function FileLibraryWindow({ me }: { me: Employee }) {
+  const [rooms, setRooms] = useState<Room[]>([]);
+  useEffect(() => { void api.rooms().then(setRooms); }, []);
+  return <main className="file-library-window"><FileLibraryHome rooms={rooms} me={me} largeWindow /></main>;
 }
 
 function NoticeDetailWindow({
@@ -1245,9 +1298,6 @@ function NoticeDetailWindow({
   return (
     <main className="notice-subwindow">
       <header>
-        <button className="subwindow-back" onClick={() => window.srghDesktop?.close()}>
-          <ArrowLeft />
-        </button>
         <div>
           <h2>{notice?.title ?? "쪽지 불러오는 중"}</h2>
         </div>
@@ -1344,9 +1394,6 @@ function NoticeComposeWindow({ me }: { me: Employee }) {
   return (
     <main className="notice-subwindow notice-compose-window">
       <header>
-        <button className="subwindow-back" onClick={() => window.srghDesktop?.close()}>
-          <ArrowLeft />
-        </button>
         <div>
           <h2>쪽지 작성</h2>
         </div>
@@ -1593,9 +1640,7 @@ function ProfileModal({
           <div>
             <h2>내 정보 관리</h2>
           </div>
-          <button className={pageMode ? "subwindow-back" : undefined} type="button" onClick={onClose} aria-label="프로필 닫기">
-            {pageMode ? <ArrowLeft /> : <X />}
-          </button>
+          {!pageMode && <button type="button" onClick={onClose} aria-label="프로필 닫기"><X /></button>}
         </header>
         <div className="profile-content">
           <section className="profile-preview">
@@ -1895,6 +1940,16 @@ function NewRoomModal({
         .filter((department) => department !== meDepartmentName),
     ),
   );
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
   const filteredEmployees = employees.filter((employee) =>
     `${employee.name} ${employee.departmentName ?? ""} ${employee.position ?? ""} ${employee.employeeNumber}`
       .toLowerCase()
@@ -2360,6 +2415,20 @@ function OrganizationWindow({ me }: { me: Employee }) {
   });
 
   useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      if (selectedEmployee) {
+        setSelectedEmployee(null);
+        return;
+      }
+      window.srghDesktop?.close();
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [selectedEmployee]);
+
+  useEffect(() => {
     const applyAppearance = (preferences: MessengerSettings) => {
       const media = window.matchMedia("(prefers-color-scheme: dark)");
       const resolvedTheme =
@@ -2539,13 +2608,18 @@ function OrganizationWindow({ me }: { me: Employee }) {
     return (
       <main className="organization-page organization-admin-page">
         <header className="organization-header">
-          <button className="subwindow-back organization-back" onClick={() => { setEmployeeCreateOpen(false); setAdminError(""); }} aria-label="조직도로 돌아가기">
-            <ArrowLeft />
-          </button>
           <div>
             <h1>직원 계정 등록</h1>
             <p>새 직원의 로그인 계정과 권한을 설정합니다.</p>
           </div>
+          <button
+            className="organization-create-back"
+            onClick={() => { setEmployeeCreateOpen(false); setAdminError(""); }}
+            aria-label="조직도로 돌아가기"
+            title="조직도로 돌아가기"
+          >
+            <ArrowLeft />
+          </button>
         </header>
         <section className="organization-admin-card scrollable">
           <form className="organization-employee-form" onSubmit={createEmployee}>
@@ -2599,14 +2673,6 @@ function OrganizationWindow({ me }: { me: Employee }) {
         </div>
       )}
       <header className="organization-header">
-        <button
-          className="subwindow-back organization-back"
-          onClick={() => window.srghDesktop?.close()}
-          aria-label="조직도 창 닫기"
-          title="뒤로가기"
-        >
-          <ArrowLeft />
-        </button>
         <div>
           <h1>사랑의병원 조직도</h1>
           <p>
@@ -2879,6 +2945,29 @@ function Messenger({
       }
     >(),
   );
+  useEffect(() => {
+    if (!standaloneChat) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (chatSearchOpen) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        setChatSearchOpen(false);
+        setChatSearchQuery("");
+        return;
+      }
+      if (document.querySelector(".modal-backdrop")) return;
+      if (chatOptionsOpen) {
+        event.preventDefault();
+        setChatOptionsOpen(false);
+        return;
+      }
+      window.srghDesktop?.close();
+    };
+    window.addEventListener("keydown", handleEscape, true);
+    return () => window.removeEventListener("keydown", handleEscape, true);
+  }, [chatOptionsOpen, chatSearchOpen, standaloneChat]);
   const activeIdRef = useRef(activeId);
   const roomViewedRef = useRef(
     (standaloneChat || compactChat) &&
@@ -3207,7 +3296,9 @@ function Messenger({
           const event = JSON.parse(frame.body);
           if (roomId === activeIdRef.current) {
             if (event.type === "MESSAGE_DELETED") {
-              setMessages((current) => current.filter((message) => message.id !== event.messageId));
+              setMessages((current) => current.map((message) => message.id === event.messageId
+                ? { ...message, content: "삭제된 메시지입니다.", file: undefined }
+                : message));
             } else {
               setMessages((current) =>
                 current.some((message) => message.id === event.id)
@@ -3531,7 +3622,9 @@ function Messenger({
       danger: true,
       onConfirm: async () => {
         await api.deleteMessage(message.id);
-        setMessages((current) => current.filter((item) => item.id !== message.id));
+        setMessages((current) => current.map((item) => item.id === message.id
+          ? { ...item, content: "삭제된 메시지입니다.", file: undefined }
+          : item));
       },
     });
   };
@@ -3640,16 +3733,9 @@ function Messenger({
     onLogout();
     await Promise.allSettled([serverCleanup, credentialCleanup]);
   };
-  if (settingsOpen) return <SettingsModal value={preferences} onChange={setPreferences} onClose={() => setSettingsOpen(false)} pageMode />;
-  if (profileOpen) return <ProfileModal employee={me} onSaved={(updated) => {
-    onMeChange(updated);
-    void api.presence(updated.availability !== "OFFLINE");
-    void api.employees().then(setEmployees);
-  }} onClose={() => setProfileOpen(false)} pageMode />;
-
   return (
     <main
-      className={`app-shell ${compactChat ? "compact-chat-open" : ""} ${standaloneChat ? "standalone-chat" : ""} ${panel === "notices" ? "notice-view-open" : ""} ${panel === "files" ? "file-view-open" : ""} ${chatSearchOpen ? "chat-search-open" : ""} ${panel === "people" && directoryScope === "favorites" ? "favorites-directory-open" : ""}`}
+      className={`app-shell ${compactChat ? "compact-chat-open" : ""} ${standaloneChat ? "standalone-chat" : ""} ${settingsOpen ? "settings-view-open" : ""} ${profileOpen ? "profile-view-open" : ""} ${panel === "notices" ? "notice-view-open" : ""} ${panel === "files" ? "file-view-open" : ""} ${chatSearchOpen ? "chat-search-open" : ""} ${panel === "people" && directoryScope === "favorites" ? "favorites-directory-open" : ""}`}
     >
       {newRoom && (
         <NewRoomModal
@@ -3689,6 +3775,7 @@ function Messenger({
           value={preferences}
           onChange={setPreferences}
           onClose={() => setSettingsOpen(false)}
+          pageMode
         />
       )}
       {confirmRequest && (
@@ -3706,6 +3793,7 @@ function Messenger({
             void api.employees().then(setEmployees);
           }}
           onClose={() => setProfileOpen(false)}
+          pageMode
         />
       )}
       {selectedEmployee && (
@@ -3774,11 +3862,13 @@ function Messenger({
             title="주소록"
             aria-label="주소록"
             className={
-              panel === "people" && directoryScope !== "favorites"
+              !settingsOpen && !profileOpen && panel === "people" && directoryScope !== "favorites"
                 ? "active"
                 : ""
             }
             onClick={() => {
+              setSettingsOpen(false);
+              setProfileOpen(false);
               setPanel("people");
               setDirectoryScope("department");
               setScopeMenuOpen(false);
@@ -3789,8 +3879,10 @@ function Messenger({
           <button
             title="채팅"
             aria-label={`채팅${totalUnreadCount > 0 ? `, 읽지 않은 메시지 ${totalUnreadCount}개` : ""}`}
-            className={panel === "chat" ? "active" : ""}
+            className={!settingsOpen && !profileOpen && panel === "chat" ? "active" : ""}
             onClick={() => {
+              setSettingsOpen(false);
+              setProfileOpen(false);
               setPanel("chat");
               setScopeMenuOpen(false);
             }}
@@ -3806,11 +3898,13 @@ function Messenger({
             title="즐겨찾기"
             aria-label="즐겨찾기"
             className={
-              panel === "people" && directoryScope === "favorites"
+              !settingsOpen && !profileOpen && panel === "people" && directoryScope === "favorites"
                 ? "active"
                 : ""
             }
             onClick={() => {
+              setSettingsOpen(false);
+              setProfileOpen(false);
               setPanel("people");
               setDirectoryScope("favorites");
               setScopeMenuOpen(false);
@@ -3821,8 +3915,8 @@ function Messenger({
           <button
             title="쪽지"
             aria-label={`쪽지${unreadNoticeCount > 0 ? `, 읽지 않은 쪽지 ${unreadNoticeCount}개` : ""}`}
-            className={panel === "notices" ? "active" : ""}
-            onClick={() => setPanel("notices")}
+            className={!settingsOpen && !profileOpen && panel === "notices" ? "active" : ""}
+            onClick={() => { setSettingsOpen(false); setProfileOpen(false); setPanel("notices"); }}
           >
             <Mail />
             {unreadNoticeCount > 0 && (
@@ -3838,11 +3932,12 @@ function Messenger({
           </button>
         </nav>
         <div className="rail-bottom">
-          <button title="파일" aria-label="파일" className={panel === "files" ? "active" : ""} onClick={() => setPanel("files")}>
+          <button title="파일" aria-label="파일" onClick={() => window.srghDesktop?.isDesktop ? window.srghDesktop.openFileLibrary() : setPanel("files")}>
             <FolderOpen />
           </button>
           <button
-            onClick={() => setSettingsOpen(true)}
+            className={settingsOpen ? "active" : ""}
+            onClick={() => { setProfileOpen(false); setSettingsOpen(true); }}
             title="설정"
             aria-label="설정"
           >
@@ -3852,8 +3947,8 @@ function Messenger({
             <LogOut />
           </button>
           <button
-            className="profile-trigger"
-            onClick={() => setProfileOpen(true)}
+            className={`profile-trigger ${profileOpen ? "active" : ""}`}
+            onClick={() => { setSettingsOpen(false); setProfileOpen(true); }}
             title="내 정보 변경"
             aria-label="내 정보 변경"
           >
@@ -4032,7 +4127,7 @@ function Messenger({
                       <em>{r.lastMessage?.content ?? "새 대화방"}</em>
                     </span>
                     <span className="room-meta">
-                      <time>{time(r.lastMessage?.sentAt)}</time>
+                      <time>{roomListTime(r.lastMessage?.sentAt)}</time>
                       {r.unreadCount > 0 && <b>{r.unreadCount}</b>}
                     </span>
                     <span className="room-state-icons">
@@ -4177,16 +4272,7 @@ function Messenger({
         {room ? (
           <>
             <header className="chat-header">
-              {standaloneChat ? (
-                <button
-                  className="subwindow-back"
-                  onClick={() => window.srghDesktop?.close()}
-                  aria-label="채팅창 닫기"
-                  title="뒤로가기"
-                >
-                  <ArrowLeft />
-                </button>
-              ) : (
+              {!standaloneChat && (
                 <button
                   className="compact-back"
                   onClick={() => setCompactChat(false)}
@@ -4218,7 +4304,7 @@ function Messenger({
               </span>
               <div className="header-actions">
                 <button
-                  className={chatSearchOpen ? "active" : ""}
+                  className={`notice-style-action ${chatSearchOpen ? "active" : ""}`}
                   aria-label="대화 검색"
                   onClick={() => {
                     setChatSearchOpen((open) => !open);
@@ -4228,7 +4314,7 @@ function Messenger({
                   <Search />
                 </button>
                 {standaloneChat && <div className="chat-options-control">
-                  <button className={chatOptionsOpen ? "active" : ""} aria-label="현재 대화방 옵션" title="대화방 옵션" onClick={() => setChatOptionsOpen((open) => !open)}><SlidersHorizontal /></button>
+                  <button className={`notice-style-action ${chatOptionsOpen ? "active" : ""}`} aria-label="현재 대화방 옵션" title="대화방 옵션" onClick={() => setChatOptionsOpen((open) => !open)}><MoreHorizontal /></button>
                   {chatOptionsOpen && <div className="chat-options-menu">
                     <header><span><Avatar name={room.name} /><span><strong>{room.name}</strong><small>{room.memberCount}명 참여</small></span></span><button onClick={() => setChatOptionsOpen(false)}><X /></button></header>
                     <div className="chat-option-participants">{room.members.slice(0, 5).map((member) => <Avatar key={member.id} name={member.name} image={member.avatarImage} color={member.avatarColor} online={member.online} availability={member.availability} />)}{room.members.length > 5 && <i>+{room.members.length - 5}</i>}</div>
@@ -4255,9 +4341,6 @@ function Messenger({
                   onClick={() => setNewRoom(true)}
                 >
                   <UserRoundPlus />
-                </button>
-                <button aria-label="더 보기">
-                  <MoreHorizontal />
                 </button>
               </div>
             </header>
@@ -4918,7 +5001,7 @@ function ImageViewerWindow({ roomId, initialFileId, me }: { roomId: number; init
   };
   const employeeGroups = useMemo(() => Object.entries(employees.filter((employee) => `${employee.name} ${employee.departmentName ?? ""} ${employee.position ?? ""}`.toLowerCase().includes(employeeSearch.trim().toLowerCase())).reduce<Record<string, Employee[]>>((groups, employee) => { (groups[employee.departmentName ?? "부서 미지정"] ??= []).push(employee); return groups; }, {})), [employeeSearch, employees]);
   return <main className="image-viewer-window">
-    <header><button onClick={() => window.srghDesktop?.close()} aria-label="닫기"><ArrowLeft /></button><strong>{current?.originalName ?? "사진 보기"}</strong><span>{files.findIndex((file) => file.id === currentId) + 1} / {files.length}</span></header>
+    <header><strong>{current?.originalName ?? "사진 보기"}</strong><span>{files.findIndex((file) => file.id === currentId) + 1} / {files.length}</span></header>
     <section className="viewer-stage">{current && <div style={{ transform: `scale(${scale}) rotate(${rotation}deg)` }}><ViewerImage file={current} /></div>}</section>
     <div className="viewer-toolbar">
       <div className="viewer-tool-group"><button onClick={() => setScale((value) => Math.max(.25, value - .25))} title="축소"><ZoomOut /></button><strong>{Math.round(scale * 100)}%</strong><button onClick={() => setScale((value) => Math.min(4, value + .25))} title="확대"><ZoomIn /></button></div>
@@ -4940,7 +5023,13 @@ function App() {
       try {
         const settings = loadSettings();
         const params = new URLSearchParams(window.location.search);
-        const auxiliaryWindow = params.has("chatRoomId") || params.has("imageViewerRoomId") || params.get("organization") === "1" || params.has("noticeId") || params.get("noticeCompose") === "1";
+        const auxiliaryWindow =
+          params.has("chatRoomId") ||
+          params.has("imageViewerRoomId") ||
+          params.get("organization") === "1" ||
+          params.get("fileLibrary") === "1" ||
+          params.has("noticeId") ||
+          params.get("noticeCompose") === "1";
         if (!settings.autoLogin && !auxiliaryWindow) {
           session.token = null;
           await window.srghDesktop?.clearCredentials();
@@ -5032,6 +5121,8 @@ function App() {
   const imageViewerFileId = Number(new URLSearchParams(window.location.search).get("imageViewerFileId")) || undefined;
   const organization =
     new URLSearchParams(window.location.search).get("organization") === "1";
+  const fileLibrary =
+    new URLSearchParams(window.location.search).get("fileLibrary") === "1";
   const noticeId =
     Number(new URLSearchParams(window.location.search).get("noticeId")) ||
     undefined;
@@ -5045,6 +5136,8 @@ function App() {
   ) : me ? (
     imageViewerRoomId && imageViewerFileId ? (
       <ImageViewerWindow roomId={imageViewerRoomId} initialFileId={imageViewerFileId} me={me} />
+    ) : fileLibrary ? (
+      <FileLibraryWindow me={me} />
     ) : organization ? (
       <OrganizationWindow me={me} />
     ) : noticeCompose ? (
@@ -5065,6 +5158,8 @@ function App() {
   );
   const desktopSurface = imageViewerRoomId && imageViewerFileId
       ? "image-viewer-shell"
+      : fileLibrary
+        ? "file-library-shell"
       : standaloneChat
         ? "chat-window-shell"
         : organization

@@ -1,0 +1,33 @@
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX:30}
+      minimum-idle: ${DB_POOL_MIN:5}
+      connection-timeout: 10000
+      validation-timeout: 3000
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:validate}
+    properties:
+      hibernate:
+        format_sql: false
+
+server:
+  address: 0.0.0.0
+  port: ${SERVER_PORT:3022}
+  tomcat:
+    threads:
+      max: ${TOMCAT_MAX_THREADS:250}
+      min-spare: ${TOMCAT_MIN_SPARE_THREADS:20}
+    accept-count: ${TOMCAT_ACCEPT_COUNT:200}
+    max-connections: ${TOMCAT_MAX_CONNECTIONS:8192}
+
+app:
+  schema-migration:
+    enabled: ${SCHEMA_MIGRATION_ENABLED:false}
+  redis:
+    enabled: true
+  demo-data:
+    enabled: false
+  cors:
+    allowed-origin-patterns: "*"

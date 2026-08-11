@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld("srghDesktop", Object.freeze({
   openImageViewer: (roomId, fileId) => ipcRenderer.send("image:open-viewer", { roomId, fileId }),
   openExternal: (url) => ipcRenderer.send("external:open", url),
   openOrganization: () => ipcRenderer.send("organization:open-window"),
+  openFileLibrary: () => ipcRenderer.send("files:open-window"),
   openNotice: (noticeId) => ipcRenderer.send("notice:open-window", noticeId),
   composeNotice: () => ipcRenderer.send("notice:compose-window"),
   applySettings: (settings) => ipcRenderer.send("settings:apply", settings),

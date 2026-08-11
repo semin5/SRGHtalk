@@ -1,0 +1,29 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: srghtalk-production
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  - job_name: srghtalk
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - 192.168.205.119:3022
+        labels:
+          node: main
+      - targets:
+          - 192.168.1.77:3022
+        labels:
+          node: sub-77
+      - targets:
+          - 192.168.1.78:3022
+        labels:
+          node: sub-78
+
+  - job_name: prometheus
+    static_configs:
+      - targets: [localhost:9090]

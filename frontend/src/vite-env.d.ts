@@ -24,6 +24,7 @@ interface Window {
     openImageViewer: (roomId: number, fileId: number) => void;
     openExternal: (url: string) => void;
     openOrganization: () => void;
+    openFileLibrary: () => void;
     openNotice: (noticeId: number) => void;
     composeNotice: () => void;
     applySettings: (settings: SrghSettings) => void;

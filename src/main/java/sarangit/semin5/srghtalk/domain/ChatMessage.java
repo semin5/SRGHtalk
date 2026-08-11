@@ -27,6 +27,9 @@ public class ChatMessage {
     @Column(length = 4000)
     private String content;
 
+    @Column(name = "original_content", length = 4000)
+    private String originalContent;
+
     @Column(nullable = false)
     private LocalDateTime sentAt;
 

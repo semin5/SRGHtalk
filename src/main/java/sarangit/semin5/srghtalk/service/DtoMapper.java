@@ -32,7 +32,7 @@ public class DtoMapper {
                 .filter(rm -> !rm.getEmployee().getId().equals(m.getSender().getId()))
                 .filter(rm -> rm.getLastReadMessageId() == null || rm.getLastReadMessageId() < m.getId())
                 .count();
-        FileDto file = files.findAll().stream().filter(f -> f.getMessage().getId().equals(m.getId())).findFirst()
+        FileDto file = m.isDeleted() ? null : files.findAll().stream().filter(f -> f.getMessage().getId().equals(m.getId())).findFirst()
                 .map(f -> new FileDto(f.getId(), f.getOriginalName(), f.getContentType(), f.getSizeBytes(),
                         "/api/files/" + f.getId(), f.getBatchId())).orElse(null);
         return new MessageDto(m.getId(), m.getRoom().getId(), m.getSender().getId(), m.getSender().getName(),
