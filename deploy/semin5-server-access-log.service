@@ -1,0 +1,19 @@
+[Unit]
+Description=Semin5 Server Access Log Spring Boot Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=semin5
+Group=semin5
+WorkingDirectory=/home/semin5
+ExecStart=/bin/bash -c 'exec /usr/bin/java -jar /home/semin5/server-access-log-0.0.1-SNAPSHOT.jar >> /home/semin5/accesslog.log 2>&1'
+Restart=on-failure
+RestartSec=5
+SuccessExitStatus=143
+TimeoutStopSec=30
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

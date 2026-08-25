@@ -11,13 +11,13 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:mysql://192.168.1.76:3308/srghtalk?serverTimezone=Asia/Seoul&characterEncoding=UTF-8}
     username: ${DB_USERNAME:semin5}
-    password: ${DB_PASSWORD:omh10ak.}
+    password: ${DB_PASSWORD:change-this-db-password}
     driver-class-name: com.mysql.cj.jdbc.Driver
   data:
     redis:
       host: ${REDIS_HOST:192.168.1.76}
       port: ${REDIS_PORT:6379}
-      password: ${SRGHTALK_REDIS_PASSWORD:omh10ak.}
+      password: ${SRGHTALK_REDIS_PASSWORD:change-this-redis-password}
       timeout: 3s
       repositories:
         enabled: false
@@ -55,6 +55,8 @@ management:
         http.server.requests: true
 
 app:
+  test-data:
+    enabled: ${TEST_DATA_ENABLED:false}
   schema-migration:
     enabled: ${SCHEMA_MIGRATION_ENABLED:false}
   redis:
@@ -72,6 +74,6 @@ app:
     legacy-directory: ${LEGACY_UPLOAD_DIRECTORY:uploads}
     minio:
       endpoint: ${MINIO_ENDPOINT:http://192.168.1.76:9000}
-      access-key: ${MINIO_ACCESS_KEY:semin5}
-      secret-key: ${MINIO_SECRET_KEY:omh10ak.}
+      access-key: ${MINIO_ACCESS_KEY:srghtalk}
+      secret-key: ${MINIO_SECRET_KEY:change-this-minio-password}
       bucket: ${MINIO_BUCKET:srghtalk-files}

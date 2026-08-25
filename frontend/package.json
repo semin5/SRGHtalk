@@ -13,7 +13,8 @@
     "preview": "vite preview",
     "electron:dev": "npm run build && electron .",
     "electron:pack": "npm run build && electron-builder --dir",
-    "electron:build": "npm run build && electron-builder --win nsis portable"
+    "electron:build": "npm run build && electron-builder --win nsis portable",
+    "electron:build:test": "npm run build && electron-builder --config electron-builder.test.yml --win nsis portable"
   },
   "dependencies": {
     "@stomp/stompjs": "^7.2.1",

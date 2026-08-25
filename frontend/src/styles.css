@@ -425,9 +425,11 @@ body { min-width: 860px; }
 .person-status-message {
   display: block;
   overflow: hidden;
-  color: #173b95;
-  font-size: calc(9px * var(--user-font-scale, 1));
-  font-weight: 500;
+  margin-top: 3px;
+  color: #536a65;
+  font-size: calc(10.5px * var(--user-font-scale, 1));
+  font-weight: 550;
+  line-height: 1.35;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -1435,7 +1437,7 @@ html[data-theme="dark"] .directory-list .person:hover { background: #26363c; }
 html[data-theme="dark"] .room-item.selected { background: #173c45; border-color: #28525c; }
 html[data-theme="dark"] .directory-list .section-label { color: #91a0a5; background: #202c31; border-color: #344147; }
 html[data-theme="dark"] .directory-list .person { border-color: #2d3a40; }
-html[data-theme="dark"] .person-status-message { color: #173b95; }
+html[data-theme="dark"] .person-status-message { color: #b5c4c8; }
 
 .font-size-input {
   width: 34px;
@@ -2037,7 +2039,7 @@ html[data-theme="dark"] .message-context-menu button:hover { background: #2b3b41
 .room-copy strong,
 .directory-list .person strong { font-size: calc(13px * var(--user-font-scale, 1)); line-height: 1.35; }
 .room-copy em,
-.person-status-message { font-size: calc(10px * var(--user-font-scale, 1)); line-height: 1.4; }
+.person-status-message { font-size: calc(10.5px * var(--user-font-scale, 1)); line-height: 1.4; }
 .directory-list .person { min-height: 58px; }
 .rail nav,
 .rail-bottom { align-items: center; }
@@ -3604,6 +3606,18 @@ html[data-theme="dark"] .message-row.system-message .bubble { color: #9cabb1; ba
 .app-shell.settings-view-open > .room-panel, .app-shell.settings-view-open > .chat-panel, .app-shell.settings-view-open > .info-panel, .app-shell.settings-view-open > .notice-home, .app-shell.settings-view-open > .file-library-home,
 .app-shell.profile-view-open > .room-panel, .app-shell.profile-view-open > .chat-panel, .app-shell.profile-view-open > .info-panel, .app-shell.profile-view-open > .notice-home, .app-shell.profile-view-open > .file-library-home { display: none; }
 .app-shell.settings-view-open > .embedded-page, .app-shell.profile-view-open > .embedded-page { grid-column: 2 / -1; grid-row: 1; min-width: 0; min-height: 0; }
+.app-shell > .rail {
+  position: relative;
+  z-index: 40;
+  pointer-events: auto;
+}
+.app-shell.settings-view-open > .embedded-page,
+.app-shell.profile-view-open > .embedded-page {
+  position: relative;
+  z-index: 30;
+  display: block !important;
+  pointer-events: auto;
+}
 .file-library-home > header { display: flex; align-items: center; justify-content: space-between; padding: 18px 25px; border-bottom: 1px solid #dfe8eb; background: #fff; }
 .file-library-home h1 { margin: 2px 0 0; font-size: calc(21px * var(--user-font-scale, 1)); }
 .file-library-home > header > svg { width: 24px; color: #173b95; }
@@ -4791,6 +4805,139 @@ html[data-theme="dark"] .profile-identity-layout .profile-preview .avatar > .pre
   border-color: #202d32 !important;
 }
 
+/* Profile photos fill their full frame in every window. */
+.avatar {
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.avatar > img {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: cover;
+  transform: scale(1.055);
+}
+
+/* Align the signed-in employee row with every other directory row. */
+.directory-list .profile-person,
+.directory-list .profile-person:hover,
+html[data-theme="dark"] .directory-list .profile-person,
+html[data-theme="dark"] .directory-list .profile-person:hover {
+  min-height: 61px;
+  margin: 0;
+  padding: 8px 4px 8px 1px !important;
+  border: 0 !important;
+  border-bottom: 1px solid #f3f5f6 !important;
+  border-radius: 0;
+}
+html[data-theme="dark"] .directory-list .profile-person,
+html[data-theme="dark"] .directory-list .profile-person:hover {
+  border-bottom-color: #2d3a40 !important;
+}
+
+/* Notes use the same searchable, filterable list rhythm as chat. */
+.notice-home {
+  grid-template-rows: 103px 45px 31px minmax(0, 1fr);
+  background: #fff;
+}
+.notice-home > header {
+  grid-row: 1;
+  z-index: 10;
+  min-height: 103px;
+  padding: 20px 18px 12px 20px;
+  align-items: center;
+}
+.notice-search-box {
+  grid-column: 1;
+  grid-row: 2;
+  z-index: 3;
+  align-self: start;
+  height: 38px;
+  margin: 0 15px 7px;
+  padding: 0 13px;
+  background: #f5f8f9;
+  border-color: #e3e9ec;
+  border-radius: 10px;
+}
+.notice-search-box > button {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 24px;
+  padding: 0;
+  color: #8a9a9f;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.notice-search-box > button svg { width: 13px; }
+.notice-home-toolbar { grid-row: 3; }
+.notice-home-list { grid-row: 4; }
+.notice-home-list article {
+  min-height: 66px;
+  padding: 9px 13px;
+}
+.notice-home-list article .avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+}
+.notice-heading { position: relative; }
+.notice-home > header .notice-heading-button {
+  width: auto;
+  height: auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  overflow: visible;
+  color: #26383e;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+}
+.notice-home > header .notice-heading-button h1 { margin: 0; }
+.notice-home > header .notice-heading-button h1 {
+  color: #24333a;
+  font-size: calc(21px * var(--user-font-scale, 1));
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -.035em;
+}
+.notice-home > header .notice-heading-button > svg {
+  width: 15px;
+  transition: transform .16s ease;
+}
+.notice-home > header .notice-heading-button.open > svg { transform: rotate(180deg); }
+.notice-home > header .notice-scope-menu {
+  top: 48px;
+  left: 0;
+  z-index: 50;
+}
+.notice-home > header .notice-scope-menu button {
+  width: 100%;
+  height: 35px;
+  justify-content: space-between;
+  padding: 0 10px;
+  overflow: visible;
+  color: #43565d;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  font-size: calc(10px * var(--user-font-scale, 1));
+}
+html[data-theme="dark"] .notice-home { background: #202c31; }
+html[data-theme="dark"] .notice-home > header .notice-heading-button { color: #eef5f7; }
+html[data-theme="dark"] .notice-home > header .notice-heading-button h1 { color: #eef5f7; }
+html[data-theme="dark"] .notice-search-box { background: #182328; border-color: #34434a; }
+
+/* The compact organization rows show status only after opening employee details. */
+.organization-person small { display: none; }
+
 /* Remove the redundant basic-info heading and use the full profile rail height. */
 .profile-identity-layout .profile-basic h3 { display: none; }
 .profile-identity-layout .profile-basic { padding-top: 0 !important; }
@@ -4860,4 +5007,391 @@ html[data-theme="dark"] .profile-identity-layout .profile-rail-availability butt
 html[data-theme="dark"] .directory-list,
 html[data-theme="dark"] .directory-list .section-label {
   background: #202c31;
+}
+
+/* Notes use the exact same vertical origin and available height as main lists. */
+.app-shell.notice-view-open > .notice-home {
+  position: static;
+  top: auto;
+  height: 100%;
+}
+
+.notice-home-toolbar {
+  min-height: 31px;
+  align-items: flex-start;
+  padding: 11px 17px 5px;
+}
+
+/* List summaries share the directory section-label typography. */
+.notice-home-toolbar strong,
+.notice-home-toolbar span,
+.filter-line,
+.filter-line span {
+  color: #7e8c92 !important;
+  font-family: inherit;
+  font-size: calc(10px * var(--user-font-scale, 1)) !important;
+  font-weight: 500 !important;
+  line-height: 1.45;
+}
+html[data-theme="dark"] .notice-home-toolbar strong,
+html[data-theme="dark"] .notice-home-toolbar span,
+html[data-theme="dark"] .filter-line,
+html[data-theme="dark"] .filter-line span {
+  color: #91a0a5 !important;
+}
+
+/* Final page geometry: notes and the standard list panel share one baseline. */
+.app-shell.notice-view-open > .notice-home {
+  align-self: stretch;
+  inset: auto;
+  width: auto;
+  min-height: 0;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  transform: none;
+  grid-template-rows: 103px 45px 30px minmax(0, 1fr);
+}
+.notice-home > header {
+  box-sizing: border-box;
+  min-height: 0;
+  height: 103px;
+  margin: 0;
+  padding: 20px 18px 12px 20px;
+}
+.notice-search-box {
+  box-sizing: border-box;
+  align-self: start;
+  height: 38px;
+  margin-top: 0;
+  margin-bottom: 7px;
+}
+.notice-home-toolbar {
+  box-sizing: border-box;
+  min-height: 0;
+  height: 30px;
+  margin: 0;
+  padding: 11px 17px 5px;
+}
+.notice-home-list {
+  margin: 0;
+  min-height: 0;
+}
+
+/* Favorites inherit the exact department spacing used by the address book. */
+.favorites-directory-open .directory-list .department-group + .department-group {
+  margin-top: 0;
+}
+.directory-list .department-group > .section-label {
+  margin-top: 0;
+  margin-bottom: 3px;
+  padding-top: 12px;
+  padding-bottom: 7px;
+}
+
+/* Notes occupy the same list column and use the same layout as chat. */
+.app-shell.notice-view-open > .notice-home {
+  position: static;
+  inset: auto;
+  z-index: 12;
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  transform: none;
+  background: #fff;
+  border-right: 1px solid #dce4e8;
+}
+.app-shell.notice-view-open > .notice-home > header {
+  flex: 0 0 103px;
+  width: 100%;
+  height: 103px;
+  padding: 20px 18px 12px 20px;
+}
+.app-shell.notice-view-open > .notice-home > .notice-search-box {
+  flex: 0 0 38px;
+  align-self: stretch;
+  width: auto;
+  height: 38px;
+  margin: 0 15px 7px;
+  padding: 0 13px;
+  gap: 9px;
+  color: inherit;
+  background: #f5f8f9;
+  border: 1px solid #e3e9ec;
+  border-radius: 10px;
+  box-shadow: none;
+}
+.app-shell.notice-view-open > .notice-home > .notice-search-box:focus-within {
+  background: #fff;
+  box-shadow: 0 0 0 3px #11abc514;
+}
+.app-shell.notice-view-open > .notice-home > .notice-home-toolbar {
+  flex: 0 0 auto;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  margin: 11px 17px 5px;
+  padding: 0;
+  align-items: center;
+}
+.app-shell.notice-view-open > .notice-home > .notice-home-list {
+  flex: 1 1 auto;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 2px 8px 14px 9px;
+  border: 0;
+}
+.app-shell.notice-view-open > .notice-home .notice-home-list article {
+  display: flex;
+  align-items: center;
+  grid-template-columns: none;
+  gap: 11px;
+  height: 66px;
+  min-height: 66px;
+  max-height: 66px;
+  overflow: hidden;
+  padding: 9px 13px;
+  border-radius: 5px;
+}
+.app-shell.notice-view-open > .notice-home .notice-home-list article > div:not(.avatar) {
+  min-width: 0;
+  flex: 1;
+  gap: 2px;
+  overflow: hidden;
+}
+.app-shell.notice-view-open > .notice-home .notice-home-list article > .avatar {
+  flex: 0 0 auto;
+}
+.app-shell.notice-view-open > .notice-home .notice-home-list article > svg {
+  flex: 0 0 auto;
+}
+html[data-density="compact"] .app-shell.notice-view-open > .notice-home .notice-home-list article .avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+}
+html[data-density="compact"] .app-shell.notice-view-open > .notice-home .notice-home-list article {
+  height: 52px;
+  min-height: 52px;
+  max-height: 52px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+html[data-density="comfortable"] .app-shell.notice-view-open > .notice-home .notice-home-list article .avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+}
+html[data-density="comfortable"] .app-shell.notice-view-open > .notice-home .notice-home-list article {
+  height: 68px;
+  min-height: 68px;
+  max-height: 68px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+html[data-theme="dark"] .app-shell.notice-view-open > .notice-home {
+  background: #202c31;
+  border-right-color: #344147;
+}
+
+/* Main list geometry: address book is the single source of truth. */
+.room-panel > .room-list {
+  padding-right: 10px;
+  padding-left: 17px;
+}
+.room-panel .room-item,
+.app-shell.notice-view-open > .notice-home .notice-home-list article {
+  height: 58px;
+  min-height: 58px;
+  max-height: 58px;
+  gap: 11px;
+  padding: 8px 4px 8px 1px;
+}
+.room-panel .room-item .avatar,
+.app-shell.notice-view-open > .notice-home .notice-home-list article .avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+}
+.app-shell.notice-view-open > .notice-home > .notice-home-list {
+  padding-right: 10px;
+  padding-left: 17px;
+}
+.room-panel .room-copy,
+.app-shell.notice-view-open > .notice-home .notice-home-list article > div:not(.avatar) {
+  gap: 3px;
+}
+
+html[data-density="compact"] .room-panel .room-item,
+html[data-density="compact"] .app-shell.notice-view-open > .notice-home .notice-home-list article {
+  height: 46px;
+  min-height: 46px;
+  max-height: 46px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+html[data-density="compact"] .room-panel .room-item .avatar,
+html[data-density="compact"] .app-shell.notice-view-open > .notice-home .notice-home-list article .avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+}
+html[data-density="comfortable"] .room-panel .room-item,
+html[data-density="comfortable"] .app-shell.notice-view-open > .notice-home .notice-home-list article {
+  height: 60px;
+  min-height: 60px;
+  max-height: 60px;
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
+html[data-density="comfortable"] .room-panel .room-item .avatar,
+html[data-density="comfortable"] .app-shell.notice-view-open > .notice-home .notice-home-list article .avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+}
+
+/* Match chat/note summary rows and first-item origin to the address book. */
+.room-panel > .filter-line,
+.app-shell.notice-view-open > .notice-home > .notice-home-toolbar {
+  box-sizing: border-box;
+  flex: 0 0 40px;
+  width: auto;
+  height: 40px;
+  min-height: 40px;
+  margin: 0 17px;
+  padding: 12px 2px 7px;
+  align-items: flex-start;
+  color: #7e8c92;
+  background: inherit;
+  border-bottom: 1px solid #edf0f2 !important;
+}
+.room-panel > .filter-line > span,
+.room-panel > .filter-line > button,
+.app-shell.notice-view-open > .notice-home > .notice-home-toolbar > strong,
+.app-shell.notice-view-open > .notice-home > .notice-home-toolbar > span {
+  margin: 0;
+  padding: 0;
+  color: inherit !important;
+  background: transparent;
+  font-family: inherit;
+  font-size: calc(10px * var(--user-font-scale, 1)) !important;
+  font-weight: 500 !important;
+  line-height: 1.45;
+}
+.room-panel > .room-list,
+.app-shell.notice-view-open > .notice-home > .notice-home-list {
+  padding-top: 0;
+}
+html[data-theme="dark"] .room-panel > .filter-line,
+html[data-theme="dark"] .app-shell.notice-view-open > .notice-home > .notice-home-toolbar {
+  color: #91a0a5;
+  border-bottom-color: #344147 !important;
+}
+
+/* Pixel-match the address-book summary height and employee-row cadence. */
+.room-panel > .filter-line,
+.app-shell.notice-view-open > .notice-home > .notice-home-toolbar {
+  flex-basis: 34px;
+  height: 34px;
+  min-height: 34px;
+}
+.room-panel > .filter-line {
+  margin-right: 17px;
+  margin-left: 17px;
+}
+.app-shell.notice-view-open > .notice-home > .notice-home-toolbar {
+  margin-right: 17px;
+  margin-left: 17px;
+}
+.room-panel > .room-list {
+  padding-top: 3px;
+  padding-left: 16px;
+}
+.app-shell.notice-view-open > .notice-home > .notice-home-list {
+  padding-top: 3px;
+  padding-left: 17px;
+}
+.room-panel > .filter-line > span,
+.room-panel > .filter-line > button {
+  transform: translateY(-1px);
+}
+.room-panel > .filter-line > span:first-child {
+  transform: translate(1px, -1px);
+}
+.app-shell.notice-view-open > .notice-home > .notice-home-toolbar > strong,
+.app-shell.notice-view-open > .notice-home > .notice-home-toolbar > span {
+  transform: translateY(-1px);
+}
+.app-shell.notice-view-open > .notice-home > .notice-home-toolbar > strong {
+  transform: translate(1px, -1px);
+}
+.directory-list .section-label,
+.room-panel > .filter-line > span,
+.room-panel > .filter-line > button,
+.app-shell.notice-view-open > .notice-home > .notice-home-toolbar > strong,
+.app-shell.notice-view-open > .notice-home > .notice-home-toolbar > span {
+  font-family: inherit !important;
+  font-size: calc(10px * var(--user-font-scale, 1)) !important;
+  font-weight: 500 !important;
+  line-height: 1.45 !important;
+  letter-spacing: normal !important;
+}
+.app-shell.notice-view-open > .notice-home > .notice-search-box {
+  margin-right: 18px;
+  margin-left: 18px;
+}
+.room-panel > .search-box {
+  margin-right: 15px;
+  margin-left: 15px;
+  transform: none;
+}
+.room-panel > .filter-line {
+  transform: none;
+}
+.room-panel .room-item {
+  gap: 10px;
+}
+.app-shell.notice-view-open > .notice-home .notice-home-list article {
+  gap: 10px;
+}
+.app-shell.notice-view-open > .notice-home .notice-home-list article > div:not(.avatar) {
+  transform: translateY(4px);
+}
+html[data-density="comfortable"] .room-panel .room-item,
+html[data-density="comfortable"] .app-shell.notice-view-open > .notice-home .notice-home-list article {
+  height: 61px;
+  min-height: 61px;
+  max-height: 61px;
+}
+html[data-theme="dark"] .app-shell.notice-view-open > .notice-home > .notice-search-box {
+  color: #dae5e8;
+  background: #182328;
+  border-color: #34434a;
+}
+html[data-theme="dark"] .app-shell.notice-view-open > .notice-home > .notice-search-box:focus-within {
+  background: #182328;
+}
+@media (max-width: 700px) {
+  .app-shell.notice-view-open > .notice-home {
+    grid-column: 2;
+    width: 100%;
+  }
+  .app-shell.notice-view-open > .notice-home > header {
+    flex-basis: 92px;
+    height: 92px;
+    padding: 16px 16px 9px 20px;
+  }
+  .app-shell.notice-view-open > .notice-home > .notice-search-box {
+    margin-right: 15px;
+    margin-left: 15px;
+  }
 }

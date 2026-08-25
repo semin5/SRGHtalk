@@ -1109,14 +1109,63 @@ function NoticeHome({
   notices: Notice[];
   onRead: (notice: Notice) => void;
 }) {
-  const visibleNotices = notices;
+  const [query, setQuery] = useState("");
+  const [scope, setScope] = useState<"all" | "received" | "sent" | "unread">("all");
+  const [scopeOpen, setScopeOpen] = useState(false);
   const received = notices.filter((notice) => notice.senderId !== me.id);
   const canWrite = me.role === "ADMIN" || me.role === "NOTICE_WRITER";
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleNotices = notices.filter((notice) => {
+    const scopeMatched =
+      scope === "all" ||
+      (scope === "received" && notice.senderId !== me.id) ||
+      (scope === "sent" && notice.senderId === me.id) ||
+      (scope === "unread" && notice.senderId !== me.id && !notice.read);
+    if (!scopeMatched) return false;
+    if (!normalizedQuery) return true;
+    return [notice.title, notice.content, notice.senderName, notice.file?.originalName]
+      .some((value) => value?.toLowerCase().includes(normalizedQuery));
+  });
+  const scopeLabel = {
+    all: "전체 쪽지",
+    received: "받은 쪽지",
+    sent: "보낸 쪽지",
+    unread: "읽지 않은 쪽지",
+  }[scope];
   return (
     <section className="notice-home">
       <header>
-        <div>
-          <h1>쪽지</h1>
+        <div className="notice-heading">
+          <button
+            className={`panel-heading-button notice-heading-button ${scopeOpen ? "open" : ""}`}
+            onClick={() => setScopeOpen((open) => !open)}
+            aria-expanded={scopeOpen}
+          >
+            <h1>쪽지</h1>
+            <ChevronDown />
+          </button>
+          {scopeOpen && (
+            <div className="scope-menu notice-scope-menu">
+              {([
+                ["all", "전체 쪽지"],
+                ["received", "받은 쪽지"],
+                ["sent", "보낸 쪽지"],
+                ["unread", "읽지 않은 쪽지"],
+              ] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  className={scope === value ? "selected" : ""}
+                  onClick={() => {
+                    setScope(value);
+                    setScopeOpen(false);
+                  }}
+                >
+                  {label}
+                  {scope === value && <span>✓</span>}
+                </button>
+              ))}
+            </div>
+          )}
           <p>중요한 업무 소식과 전달 사항을 확인하세요.</p>
         </div>
         {canWrite && (
@@ -1130,8 +1179,21 @@ function NoticeHome({
           </button>
         )}
       </header>
+      <div className="notice-search-box search-box">
+        <Search />
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="제목, 내용, 보낸 사람 검색"
+        />
+        {query && (
+          <button onClick={() => setQuery("")} aria-label="검색어 지우기">
+            <X />
+          </button>
+        )}
+      </div>
       <div className="notice-home-toolbar">
-        <strong>받은 쪽지 및 보낸 쪽지</strong>
+        <strong>{scopeLabel}</strong>
         <span>
           읽지 않음 {received.filter((notice) => !notice.read).length}
         </span>
@@ -2436,12 +2498,23 @@ function OrganizationWindow({ me }: { me: Employee }) {
     const client = new Client({
       webSocketFactory: () => new SockJS(websocketUrl),
       reconnectDelay: 3000,
+      connectionTimeout: 8000,
+      heartbeatIncoming: 10000,
+      heartbeatOutgoing: 10000,
+      heartbeatToleranceMultiplier: 1.5,
+      discardWebsocketOnCommFailure: true,
       onConnect: () => {
         client.subscribe("/topic/presence", refresh);
         client.subscribe("/topic/directory", refresh);
       },
     });
     client.activate();
+    const recoverConnection = () => {
+      if (!client.active) client.activate();
+      else if (!client.connected) client.forceDisconnect();
+    };
+    const reconnectWatchdog = window.setInterval(recoverConnection, 15_000);
+    window.addEventListener("online", recoverConnection);
     const favoritesChanged = (event: Event) =>
       setFavoriteIds(
         (event as CustomEvent<number[]>).detail ?? loadFavoriteIds(),
@@ -2451,6 +2524,8 @@ function OrganizationWindow({ me }: { me: Employee }) {
     const closeMenu = () => setMenu(null);
     window.addEventListener("click", closeMenu);
     return () => {
+      window.clearInterval(reconnectWatchdog);
+      window.removeEventListener("online", recoverConnection);
       void client.deactivate();
       window.removeEventListener("srgh-favorites-changed", favoritesChanged);
       window.removeEventListener("storage", favoritesChanged);
@@ -3227,6 +3302,11 @@ function Messenger({
     const client = new Client({
       webSocketFactory: () => new SockJS(websocketUrl),
       reconnectDelay: 3000,
+      connectionTimeout: 8000,
+      heartbeatIncoming: 10000,
+      heartbeatOutgoing: 10000,
+      heartbeatToleranceMultiplier: 1.5,
+      discardWebsocketOnCommFailure: true,
       onConnect: () => {
         setSocketConnected(true);
         client.subscribe("/topic/rooms", () => void refreshRooms());
@@ -3290,7 +3370,17 @@ function Messenger({
     });
     client.activate();
     clientRef.current = client;
+    const recoverConnection = () => {
+      if (!client.active) client.activate();
+      else if (!client.connected) client.forceDisconnect();
+    };
+    const reconnectWatchdog = window.setInterval(recoverConnection, 15_000);
+    window.addEventListener("online", recoverConnection);
+    window.addEventListener("focus", recoverConnection);
     return () => {
+      window.clearInterval(reconnectWatchdog);
+      window.removeEventListener("online", recoverConnection);
+      window.removeEventListener("focus", recoverConnection);
       roomSubscriptionsRef.current.forEach((subscription) => {
         subscription.message.unsubscribe();
         subscription.read.unsubscribe();
@@ -3761,6 +3851,30 @@ function Messenger({
     onLogout();
     await Promise.allSettled([serverCleanup, credentialCleanup]);
   };
+  const closeTransientUi = () => {
+    setScopeMenuOpen(false);
+    setDirectoryMenu(null);
+    setRoomMenu(null);
+    setMessageMenu(null);
+    setSelectedEmployee(null);
+    setRenameRoom(null);
+    setNewRoom(false);
+    setChatSearchOpen(false);
+    setChatOptionsOpen(false);
+    setChatUtility(null);
+    setCaptureMenuOpen(false);
+    setDisplayPickerOpen(false);
+  };
+  const openSettingsPage = () => {
+    closeTransientUi();
+    setProfileOpen(false);
+    setSettingsOpen(true);
+  };
+  const openProfilePage = () => {
+    closeTransientUi();
+    setSettingsOpen(false);
+    setProfileOpen(true);
+  };
   return (
     <main
       className={`app-shell ${compactChat ? "compact-chat-open" : ""} ${standaloneChat ? "standalone-chat" : ""} ${settingsOpen ? "settings-view-open" : ""} ${profileOpen ? "profile-view-open" : ""} ${panel === "notices" ? "notice-view-open" : ""} ${panel === "files" ? "file-view-open" : ""} ${chatSearchOpen ? "chat-search-open" : ""} ${panel === "people" && directoryScope === "favorites" ? "favorites-directory-open" : ""}`}
@@ -3965,7 +4079,8 @@ function Messenger({
           </button>
           <button
             className={settingsOpen ? "active" : ""}
-            onClick={() => { setProfileOpen(false); setSettingsOpen(true); }}
+            type="button"
+            onClick={openSettingsPage}
             title="설정"
             aria-label="설정"
           >
@@ -3976,7 +4091,8 @@ function Messenger({
           </button>
           <button
             className={`profile-trigger ${profileOpen ? "active" : ""}`}
-            onClick={() => { setSettingsOpen(false); setProfileOpen(true); }}
+            type="button"
+            onClick={openProfilePage}
             title="내 정보 변경"
             aria-label="내 정보 변경"
           >
@@ -4914,8 +5030,7 @@ function Messenger({
               </button>
               <button
                 onClick={() => {
-                  setProfileOpen(true);
-                  setDirectoryMenu(null);
+                  openProfilePage();
                 }}
               >
                 <Settings /> 내 정보 관리

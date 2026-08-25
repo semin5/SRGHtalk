@@ -46,5 +46,64 @@ frontend/*.tsbuildinfo
 data/
 uploads/
 *.log
+# Local environment and credentials
 .env
-SRGHtalk.jar
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+!**/.env.*.example
+
+# Private keys, certificates and credential stores
+*.pem
+*.key
+*.pfx
+*.p12
+*.jks
+*.keystore
+*.truststore
+*.crt
+*.cer
+*.der
+*credentials*.json
+*secrets*.json
+
+# Local databases, dumps and runtime state
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+*.sql.gz
+*.dump
+*.bak
+*.pid
+*.out
+*.err
+
+# Deployable binaries and archives
+*.jar
+*.war
+*.tar
+*.tar.gz
+*.tgz
+
+# Machine-specific deployment/operations files
+deploy/ha/
+deploy/live-ha/
+deploy/test-ha/
+deploy/inspect-*.sh
+deploy/inspect-*.ps1
+deploy/scan-*-credentials-*.py
+deploy/*minio-hdd*.sh
+deploy/compare-test-*.sh
+deploy/verify-test-*.sh
+deploy/add-test-*.sh
+deploy/update-live-*.sh
+deploy/rename-live-*.sh
+deploy/resume-test-*.sh
+deploy/initialize-usb-*.ps1
+
+# Codex and local test build scratch data
+.codex-tmp/
+frontend/build-test/

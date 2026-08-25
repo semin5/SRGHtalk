@@ -1,0 +1,40 @@
+appId: kr.saranghospital.srghtalk.test
+productName: 사랑톡 테스트
+copyright: Copyright © 2026 사랑의병원 IT팀
+
+directories:
+  output: release-test-1.20.4
+
+files:
+  - dist/**/*
+  - electron/**/*
+  - build/SRGH_logo.ico
+  - package.json
+
+extraFiles:
+  - from: build-test/srghtalk-server.json
+    to: srghtalk-server.json
+
+asar: true
+
+win:
+  icon: build/SRGH_logo.ico
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+
+nsis:
+  artifactName: 사랑톡-테스트-설치-${version}-${arch}.${ext}
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: 사랑톡 테스트
+  installerLanguages: [ko_KR]
+  language: "1042"
+  deleteAppDataOnUninstall: false
+
+portable:
+  artifactName: 사랑톡-테스트-포터블-${version}-${arch}.${ext}
